@@ -9,4 +9,4 @@
 	qcom,board-id = <0x10008 0>;
 };
 
-#include NUBIA_OVERWRITE_DTSI_FILE
+#include "../nubia/NX659J/head.dtsi"
