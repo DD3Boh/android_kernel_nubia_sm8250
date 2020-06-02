@@ -228,4 +228,8 @@ int cam_flash_pmic_gpio_flush_request(struct cam_flash_ctrl *fctrl,
 void cam_flash_shutdown(struct cam_flash_ctrl *fctrl);
 int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);
 
+/*ZTEMT: fengxun add for flash debug--------Start*/
+int cam_flash_switch(struct cam_flash_ctrl *flash_ctrl, int enable);
+/*ZTEMT: fengxun add for flash debug--------End*/
+
 #endif /*_CAM_FLASH_DEV_H_*/
