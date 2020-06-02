@@ -14,35 +14,14 @@
 #include "drm_connector.h"
 #include "sde_connector.h"
 #include "dp_display.h"
+#include "nubia_dp_preference.h"
 
 #define DEBUG_NAME "drm_dp"
 
-struct dp_debug_private {
-	struct dentry *root;
-	u8 *edid;
-	u32 edid_size;
-
-	u8 *dpcd;
-	u32 dpcd_size;
-
-	u32 mst_con_id;
-	bool hotplug;
-
-	char exe_mode[SZ_32];
-	char reg_dump[SZ_32];
-
-	struct dp_hpd *hpd;
-	struct dp_link *link;
-	struct dp_panel *panel;
-	struct dp_aux *aux;
-	struct dp_catalog *catalog;
-	struct drm_connector **connector;
-	struct device *dev;
-	struct dp_debug dp_debug;
-	struct dp_parser *parser;
-	struct dp_ctrl *ctrl;
-	struct mutex lock;
-};
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+extern struct _select_sde_edid_info select_sde_edid_info;
+struct dp_debug_private *debug_node = NULL;
+#endif
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
 {
@@ -391,7 +370,7 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 
 	if (!hdisplay || !vdisplay || !vrefresh)
 		goto clear;
-
+	select_sde_edid_info.node_control = true;
 	debug->dp_debug.debug_en = true;
 	debug->dp_debug.hdisplay = hdisplay;
 	debug->dp_debug.vdisplay = vdisplay;
@@ -1912,6 +1891,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	struct dp_debug_private *debug = container_of(dp_debug,
 		struct dp_debug_private, dp_debug);
 	struct dentry *dir, *file;
+	debug_node = debug;
 
 	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
 		DP_WARN("Not creating debug root dir.");

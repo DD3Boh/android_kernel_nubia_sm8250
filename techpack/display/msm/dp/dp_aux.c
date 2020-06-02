@@ -4,6 +4,7 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/soc/zte/usb_switch_dp.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
 #include <linux/usb/usbpd.h>
 #include <linux/delay.h>
@@ -761,7 +762,7 @@ static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
 {
 	struct dp_aux_private *aux;
 	int rc = 0;
-	enum fsa_function event = FSA_USBC_DISPLAYPORT_DISCONNECTED;
+	enum switcher_function event = SWITCHER_USBC_DISPLAYPORT_DISCONNECTED;
 
 	if (!dp_aux) {
 		DP_ERR("invalid input\n");
@@ -785,22 +786,24 @@ static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
 	if (enable) {
 		switch (orientation) {
 		case ORIENTATION_CC1:
-			event = FSA_USBC_ORIENTATION_CC1;
+			event = SWITCHER_USBC_ORIENTATION_CC1;
 			break;
 		case ORIENTATION_CC2:
-			event = FSA_USBC_ORIENTATION_CC2;
+			event = SWITCHER_USBC_ORIENTATION_CC2;
 			break;
 		default:
 			DP_ERR("invalid orientation\n");
 			rc = -EINVAL;
 			goto end;
 		}
+	}else{
+		event = SWITCHER_USBC_DISPLAYPORT_DISCONNECTED;
 	}
 
 	DP_DEBUG("enable=%d, orientation=%d, event=%d\n",
 			enable, orientation, event);
 
-	rc = fsa4480_switch_event(aux->aux_switch_node, event);
+	rc = switcher_switch_event(aux->aux_switch_node, event);
 	if (rc)
 		DP_ERR("failed to configure fsa4480 i2c device (%d)\n", rc);
 end:

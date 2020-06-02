@@ -125,6 +125,7 @@ struct dsi_backlight_config {
 	u32 bl_dcs_subtype;
 
 	int en_gpio;
+	int lhbm_gpio;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -344,5 +345,12 @@ void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
 
 void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 		struct dsi_display_mode *mode, u32 frame_threshold_us);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+int nubia_dsi_panel_hbm(struct dsi_panel *panel, uint32_t hbm_modes);
+int dsi_panel_read_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len);
+int dsi_panel_write_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len);
+void nubia_write_panel_osc_timing(uint32_t dfps, struct mipi_dsi_device *dsi);
+#endif
 
 #endif /* _DSI_PANEL_H_ */

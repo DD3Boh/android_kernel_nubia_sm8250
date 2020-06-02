@@ -30,8 +30,16 @@
 #include "sde_hdcp.h"
 #include "dp_debug.h"
 #include "sde_dbg.h"
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+#include "nubia_dp_preference.h"
+#endif
 
 #define DP_MST_DEBUG(fmt, ...) DP_DEBUG(fmt, ##__VA_ARGS__)
+
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+extern struct _select_sde_edid_info select_sde_edid_info;
+extern char edid_mode_best_info[32];
+#endif
 
 #define dp_display_state_show(x) { \
 	DP_ERR("%s: state (0x%x): %s\n", x, dp->state, \
@@ -1276,6 +1284,17 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	if (select_sde_edid_info.edid_hot_plug) {
+		select_sde_edid_info.edid_mode_store = true;
+		select_sde_edid_info.edid_hot_plug = false;
+	} else
+		select_sde_edid_info.edid_mode_store = false;
+
+	printk("%s:%d----edid_hot_plug = %d, edid_mode_store = %d--\n",
+		__func__, __LINE__, select_sde_edid_info.edid_hot_plug, select_sde_edid_info.edid_mode_store);
+#endif
+
 	dp = dev_get_drvdata(dev);
 	if (!dp) {
 		DP_ERR("no driver data found\n");
@@ -1299,7 +1318,14 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
 	    && !dp->parser->gpio_aux_switch)
 		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
-
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	select_sde_edid_info.hdmi_connected = false;
+	if (!select_sde_edid_info.edid_mode_store) {
+		memset(select_sde_edid_info.edid_mode_info, 0x00, SZ_4K);
+		memset(edid_mode_best_info, 0x00, 32);
+		select_sde_edid_info.node_control = false;
+	}
+#endif
 	SDE_EVT32_EXTERNAL(SDE_EVTLOG_FUNC_EXIT, dp->state);
 end:
 	return rc;
@@ -2481,6 +2507,14 @@ static enum drm_mode_status dp_display_validate_mode(
 	struct dp_debug *debug;
 	enum drm_mode_status mode_status = MODE_BAD;
 
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	static flag = 1;
+	static bool debug_en;
+	static int vrefresh;
+	static int hdisplay;
+	static int vdisplay;
+	static int aspect_ratio;
+#endif
 	if (!dp_display || !mode || !panel ||
 			!avail_res || !avail_res->max_mixer_width) {
 		DP_ERR("invalid params\n");
@@ -2502,6 +2536,37 @@ static enum drm_mode_status dp_display_validate_mode(
 		DP_ERR("invalid debug node\n");
 		goto end;
 	}
+
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	/* when system boot up, we use the best fps and resulation
+	but when echo the edid_modes node, we use the echo value */
+	if (!select_sde_edid_info.node_control) {
+		/*first: store default config*/
+		if (flag) {
+			debug_en = debug->debug_en ;
+			vrefresh = debug->vrefresh ;
+			hdisplay = debug->hdisplay ;
+			vdisplay = debug->vdisplay ;
+			flag = 0;
+		}
+		/* second: if hdmi disconnect, restore the default config */
+		if (select_sde_edid_info.hdmi_connected == false) {
+			debug->debug_en = debug_en;
+			debug->vrefresh = vrefresh;
+			debug->hdisplay = hdisplay;
+			debug->vdisplay = vdisplay;
+			debug->aspect_ratio = aspect_ratio;
+		}
+		/* if hdmi connected, we chose best resultion and fps */
+		if(select_sde_edid_info.hdmi_connected == true) {
+			debug->debug_en = true;
+			debug->vrefresh = select_sde_edid_info.fps;
+			debug->hdisplay = select_sde_edid_info.h;
+			debug->vdisplay = select_sde_edid_info.v;
+			debug->aspect_ratio =select_sde_edid_info.ratio;
+		}
+	}
+#endif
 
 	if (dp_display_validate_resources(dp_display, panel, mode, avail_res)) {
 		DP_DEBUG("DP bad mode %dx%d@%d\n",
@@ -3140,6 +3205,9 @@ static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct dp_display_private *dp;
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	struct dp_aux *usbdp;
+#endif
 
 	if (!pdev || !pdev->dev.of_node) {
 		DP_ERR("pdev not found\n");
@@ -3217,6 +3285,10 @@ static int dp_display_probe(struct platform_device *pdev)
 		DP_ERR("component add failed, rc=%d\n", rc);
 		goto error;
 	}
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	usbdp = dp->aux;
+	nubia_set_usbdp_ctrl(usbdp);
+#endif
 
 	return 0;
 error:
