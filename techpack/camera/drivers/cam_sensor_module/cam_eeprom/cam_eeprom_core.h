@@ -17,5 +17,10 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
  */
 void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl);
 
+/*ZTEMT: songliangliang add for write CalibrationData--------Start*/
+extern int32_t cam_nubia_eeprom_io_init(struct camera_io_master io_master);
+/*ZTEMT: songliangliang add for write CalibrationData---------end*/
+
+
 #endif
 /* _CAM_EEPROM_CORE_H_ */
