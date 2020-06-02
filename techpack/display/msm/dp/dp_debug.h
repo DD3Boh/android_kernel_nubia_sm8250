@@ -88,6 +88,34 @@ struct dp_debug {
 	void (*abort)(struct dp_debug *dp_debug);
 };
 
+struct dp_debug_private {
+	struct dentry *root;
+	u8 *edid;
+	u32 edid_size;
+
+	u8 *dpcd;
+	u32 dpcd_size;
+
+	u32 mst_con_id;
+	bool hotplug;
+
+	char exe_mode[SZ_32];
+	char reg_dump[SZ_32];
+
+	struct dp_hpd *hpd;
+	struct dp_link *link;
+	struct dp_panel *panel;
+	struct dp_aux *aux;
+	struct dp_catalog *catalog;
+	struct drm_connector **connector;
+	struct device *dev;
+	struct dp_debug dp_debug;
+	struct dp_parser *parser;
+	struct dp_ctrl *ctrl;
+	struct mutex lock;
+};
+
+
 /**
  * struct dp_debug_in
  * @dev: device instance of the caller

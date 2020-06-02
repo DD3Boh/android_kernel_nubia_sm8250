@@ -22,6 +22,7 @@ msm_drm-$(CONFIG_DRM_MSM_DP) += dp/dp_usbpd.o \
 	dp/dp_drm.o \
 	dp/dp_hdcp2p2.o \
 	dp/dp_mst_drm.o \
+	dp/nubia_dp_preference.o\
 
 msm_drm-$(CONFIG_DRM_MSM_SDE) += sde/sde_crtc.o \
 	sde/sde_encoder.o \
@@ -115,3 +116,4 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_notifier.o\
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
+obj-$(CONFIG_MACH_NUBIA_NX659J) += nubia_disp_preference.o
