@@ -8,6 +8,9 @@
 
 #include "cam_sensor_dev.h"
 
+extern bool is_eeprom_poweron; //nubia songliang add for CalibrationData
+
+
 /**
  * @s_ctrl: Sensor ctrl structure
  *

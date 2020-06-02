@@ -746,6 +746,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
 	uint32_t chipid = 0;
+	uint32_t sensor_version = 0;
 	struct cam_camera_slave_info *slave_info;
 
 	slave_info = &(s_ctrl->sensordata->slave_info);
@@ -755,13 +756,41 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 			 slave_info);
 		return -EINVAL;
 	}
+	//ztemt:kangxiong add for Hi846 read ID---start
+	if (0x2509 == slave_info->sensor_id)
+	{
+		rc = camera_io_dev_read(
+		&(s_ctrl->io_master_info),
+		slave_info->sensor_id_reg_addr,
+		&chipid, CAMERA_SENSOR_I2C_TYPE_BYTE,
+		CAMERA_SENSOR_I2C_TYPE_WORD);
 
-	rc = camera_io_dev_read(
+	}
+	else
+	{
+		rc = camera_io_dev_read(
 		&(s_ctrl->io_master_info),
 		slave_info->sensor_id_reg_addr,
 		&chipid,
 		s_ctrl->sensor_probe_addr_type,
 		s_ctrl->sensor_probe_data_type);
+	}
+	//ztemt:kangxiong add for Hi846 read ID---end
+
+	//ztemt:kangxiong add for imx686 read version---start
+	if(chipid == 0x0686){
+		rc = camera_io_dev_read(
+		&(s_ctrl->io_master_info),
+		0x0018,
+		&sensor_version, CAMERA_SENSOR_I2C_TYPE_WORD,
+		CAMERA_SENSOR_I2C_TYPE_BYTE);
+		if((sensor_version&0x20)==0x20){
+			chipid = 0x0687;
+		}
+		CAM_WARN(CAM_SENSOR, "sensor version :0x%x chipid = 0x%x",
+				sensor_version,chipid);
+	}
+	//ztemt:kangxiong add for imx686 read version---start
 
 	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
 		chipid, slave_info->sensor_id);
@@ -1300,6 +1329,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	rc = camera_io_init(&(s_ctrl->io_master_info));
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
+	is_eeprom_poweron = true;   //nubia kangxiong add for CalibrationData
 
 	return rc;
 }
@@ -1339,6 +1369,7 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	camera_io_release(&(s_ctrl->io_master_info));
+	is_eeprom_poweron = false;    //nubia kangxiong add for CalibrationData
 
 	return rc;
 }
