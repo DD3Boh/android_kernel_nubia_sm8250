@@ -234,4 +234,6 @@ source "drivers/gpu/msm/Kconfig"
 source "drivers/energy_model/Kconfig"
 
 source "drivers/fan/Kconfig"
+
+source "drivers/nubia_hw_version/Kconfig"
 endmenu
