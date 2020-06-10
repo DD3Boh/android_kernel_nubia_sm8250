@@ -4128,6 +4128,8 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
 		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
 			dev->rc_idx);
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
 		return MSM_PCIE_ERROR;
 	}
 
@@ -4643,6 +4645,8 @@ int msm_pcie_enumerate(u32 rc_idx)
 	ret = msm_pcie_enable(dev);
 	if (ret) {
 		PCIE_ERR(dev, "PCIe: RC%d: failed to enable\n", dev->rc_idx);
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
 		goto out;
 	}
 
@@ -5087,6 +5091,8 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		} else {
 			msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKDOWN);
 		}
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
 	}
 
 	return IRQ_HANDLED;
