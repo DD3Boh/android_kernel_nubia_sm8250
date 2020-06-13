@@ -175,4 +175,14 @@ config SMB1398_CHARGER
 	      wireless charger receiver and provide the input for downstream
 	      chargers.
 
+config NUBIA_CHARGE_FEATURE
+	bool "nubia charge feature support"
+	help
+	  Say Y here to enable nubia charge feature support.
+
+config NUBIA_MSOC_FEATURE
+	bool "nubia msoc feature support"
+	help
+	  Say Y here to enable nubia msoc feature support.
+
 endmenu
