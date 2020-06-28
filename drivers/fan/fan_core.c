@@ -5,6 +5,7 @@
 #include <linux/delay.h>
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/thermal.h>
 
 #include "nubia_fan.h"
 #define FAN_PINCTRL_STATE_ACTIVE "pull_up_default"
@@ -47,6 +48,7 @@ static unsigned int fan_temp = 0;
 static unsigned int fan_level = 0;
 static unsigned int g_fan_enable = 0;
 static unsigned int fan_thermal_engine_level = 0;
+static unsigned int fan_smart = 0;
 static bool fan_power_on = 0;
 static unsigned int firmware_version = 5;
 static unsigned char firmware_magicvalue = 0x55;
@@ -787,6 +789,38 @@ static void fan_set_pwm_by_level(unsigned int level)
 	}
 }
 
+static void smart_fan_func(struct work_struct *work) {
+	struct fan *fan = container_of(to_delayed_work(work), typeof(*fan), smart_fan_work);
+	static int level = 0, i = 0, total = 0, temp = 0;
+	char thermal[15];
+
+	if (fan_smart) {
+		for (i = 0; i <= 7; i++) {
+			sprintf(thermal, "cpu-1-%i-usr", i);
+			thermal_zone_get_temp(thermal_zone_get_zone_by_name(thermal), &temp);
+			total += temp;
+		}
+		total /= 8;
+
+		if (total > 57000)
+			level = 5;
+		else if (total > 53000)
+			level = 4;
+		else if (total > 49000)
+			level = 3;
+		else if (total > 46000)
+			level = 2;
+		else if (total > 40000)
+			level = 1;
+		else
+			level = 0;
+
+		if (level != fan_level)
+			fan_set_pwm_by_level(level);
+	}
+	queue_delayed_work(fan->wq, &fan->smart_fan_work, msecs_to_jiffies(10000));
+}
+
 static ssize_t fan_enable_show(struct kobject *kobj,
 			       struct kobj_attribute *attr, char *buf)
 {
@@ -803,6 +837,17 @@ static ssize_t fan_enable_store(struct kobject *kobj,
 
 	return count;
 }
+
+static ssize_t fan_smart_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf) {
+	return sprintf(buf, "%d\n", fan_smart);
+}
+
+static ssize_t fan_smart_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count) {
+	sscanf(buf, "%d", &fan_smart);
+	return count;
+};
 
 static ssize_t fan_speed_level_show(struct kobject *kobj,
 				    struct kobj_attribute *attr, char *buf)
@@ -869,6 +914,8 @@ static ssize_t fan_thermal_engine_level_store(struct kobject *kobj,
 }
 static struct kobj_attribute fan_enable_attr =
 	__ATTR(fan_enable, 0664, fan_enable_show, fan_enable_store);
+static struct kobj_attribute fan_smart_attr=
+	__ATTR(fan_smart, 0664, fan_smart_show, fan_smart_store);
 static struct kobj_attribute fan_level_attr = __ATTR(
 	fan_speed_level, 0664, fan_speed_level_show, fan_speed_level_store);
 static struct kobj_attribute fan_speed_attr =
@@ -883,6 +930,7 @@ static struct kobj_attribute fan_thermal_engine_level_attr =
 
 static struct attribute *fan_attrs[] = {
 	&fan_enable_attr.attr,
+	&fan_smart_attr.attr,
 	&fan_level_attr.attr,
 	&fan_speed_attr.attr,
 	&fan_current_attr.attr,
@@ -986,6 +1034,14 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	INIT_DELAYED_WORK(&fan_delay_work, fan_read_workqueue);
 	//End [0016004715,fix the factory test result to panic,20181121]
 	fan_set_enable(false);
+
+	/* initialize smart fan wq */
+	fan->wq = alloc_workqueue("smart_fan",
+				WQ_HIGHPRI | WQ_UNBOUND, 0);
+
+	INIT_DELAYED_WORK(&fan->smart_fan_work, smart_fan_func);
+	queue_delayed_work(fan->wq, &fan->smart_fan_work, msecs_to_jiffies(20000));
+
 	return 0;
 
 regulator_put:

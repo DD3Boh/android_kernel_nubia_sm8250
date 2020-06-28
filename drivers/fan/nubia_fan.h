@@ -37,6 +37,8 @@ struct fan {
 	struct device *dev;
 	struct regulator *pwr_reg;
 	struct fan_pinctrl pinctrl_info;
+	struct delayed_work smart_fan_work;
+	struct workqueue_struct *wq;
 	int reset_gpio;
 };
 
