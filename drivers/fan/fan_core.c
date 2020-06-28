@@ -6,6 +6,9 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/thermal.h>
+#include <linux/fb.h>
+#include <linux/notifier.h>
+#include <linux/msm_drm_notify.h>
 
 #include "nubia_fan.h"
 #define FAN_PINCTRL_STATE_ACTIVE "pull_up_default"
@@ -46,9 +49,11 @@ static unsigned int fan_speed = 0;
 static unsigned int fan_current = 0;
 static unsigned int fan_temp = 0;
 static unsigned int fan_level = 0;
+static unsigned int old_fan_level = 0;
 static unsigned int g_fan_enable = 0;
 static unsigned int fan_thermal_engine_level = 0;
 static unsigned int fan_smart = 0;
+static unsigned int screen_status = 1;
 static bool fan_power_on = 0;
 static unsigned int firmware_version = 5;
 static unsigned char firmware_magicvalue = 0x55;
@@ -739,6 +744,7 @@ static void fan_set_enable(bool enable)
 		fan_speed = 0;
 		fan_level = 0;
 	}
+
 	set_fan_power_on_state(enable);
 	fan_enable_reg(nubia_fan, enable);
 }
@@ -753,11 +759,10 @@ static void fan_set_pwm_by_level(unsigned int level)
 	if (level < FAN_LEVEL_0 || level > FAN_LEVEL_MAX)
 		return;
 
-	fan_level = level;
 	if (level == FAN_LEVEL_0) {
 		fan_set_enable(false);
 		old_level = level;
-	} else {
+	} else if (screen_status) {
 		if (get_fan_power_on_state() == false) {
 			fan_set_enable(true);
 			old_level = 0;
@@ -787,6 +792,7 @@ static void fan_set_pwm_by_level(unsigned int level)
 		old_level = level;
 		schedule_delayed_work(&fan_delay_work, round_jiffies_relative(msecs_to_jiffies(200)));
 	}
+	fan_level = level;
 }
 
 static void smart_fan_func(struct work_struct *work) {
@@ -794,7 +800,7 @@ static void smart_fan_func(struct work_struct *work) {
 	static int level = 0, i = 0, total = 0, temp = 0;
 	char thermal[15];
 
-	if (fan_smart) {
+	if (fan_smart && screen_status) {
 		for (i = 0; i <= 7; i++) {
 			sprintf(thermal, "cpu-1-%i-usr", i);
 			thermal_zone_get_temp(thermal_zone_get_zone_by_name(thermal), &temp);
@@ -817,8 +823,38 @@ static void smart_fan_func(struct work_struct *work) {
 
 		if (level != fan_level)
 			fan_set_pwm_by_level(level);
-	}
+	} else if (fan_smart && !screen_status)
+		old_fan_level = fan_level;
+
 	queue_delayed_work(fan->wq, &fan->smart_fan_work, msecs_to_jiffies(10000));
+}
+
+static void fan_set_old_level(struct work_struct *work) {
+	fan_set_pwm_by_level(old_fan_level);
+};
+
+static int fb_notifier_callback(struct notifier_block *self,
+			unsigned long event, void *data) {
+	struct fan *fan = container_of(self, struct fan, fb_notif);
+	struct fb_event *evdata = data;
+	int *blank;
+
+	if (evdata && evdata->data && fan) {
+		blank = evdata->data;
+		if (*blank == MSM_DRM_BLANK_POWERDOWN) {
+			screen_status = 0;
+			old_fan_level = fan_level;
+			if (fan_level != FAN_LEVEL_0)
+				fan_set_pwm_by_level(FAN_LEVEL_0);
+		} else {
+			screen_status = 1;
+			if (old_fan_level != FAN_LEVEL_0)
+				schedule_delayed_work(&fan->pwm_delayed_work, msecs_to_jiffies(10));
+		}
+	}
+
+	pr_err("Screen status: %d\n", screen_status);
+	return 0;
 }
 
 static ssize_t fan_enable_show(struct kobject *kobj,
@@ -834,7 +870,6 @@ static ssize_t fan_enable_store(struct kobject *kobj,
 {
 	sscanf(buf, "%d", &g_fan_enable);
 	printk(KERN_ERR "%s: g_fan_enable=%d\n", __func__, g_fan_enable);
-
 	return count;
 }
 
@@ -1042,6 +1077,12 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	INIT_DELAYED_WORK(&fan->smart_fan_work, smart_fan_func);
 	queue_delayed_work(fan->wq, &fan->smart_fan_work, msecs_to_jiffies(20000));
 
+	INIT_DELAYED_WORK(&fan->pwm_delayed_work, fan_set_old_level);
+
+	/* start fb notifier */
+	fan->fb_notif.notifier_call = fb_notifier_callback;
+	msm_drm_panel_register_client(&fan->fb_notif);
+
 	return 0;
 
 regulator_put:
@@ -1075,6 +1116,8 @@ static int fan_remove(struct i2c_client *i2c)
 
 	devm_kfree(&i2c->dev, fan);
 	fan = NULL;
+
+	msm_drm_panel_unregister_client(&fan->fb_notif);
 	return 0;
 }
 
