@@ -10,10 +10,11 @@ enum therm_product_id {
 	FAN_LEVEL_5,
 	FAN_LEVEL_MAX = FAN_LEVEL_5,
 };
+
 struct fan_pinctrl {
-    struct pinctrl *pinctrl;
-    struct pinctrl_state *pin_active;
-    struct pinctrl_state *pin_suspend;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pin_active;
+	struct pinctrl_state *pin_suspend;
 };
 
 enum reset_delay_utime {
@@ -31,14 +32,14 @@ enum reset_delay_utime {
 	DELAY_1800 = 1800,
 };
 
-
 struct fan {
-    struct i2c_client *i2c;
-    struct device *dev;
+	struct i2c_client *i2c;
+	struct device *dev;
 	struct regulator *pwr_reg;
-	int reset_gpio;
 	struct fan_pinctrl pinctrl_info;
+	int reset_gpio;
 };
+
 static void fan_i2c_write(struct fan *fan, unsigned char *data, unsigned int length);
 static unsigned int fan_i2c_read(struct fan *fan, unsigned char *data, unsigned int length);
 static bool get_fan_power_on_state(void);
