@@ -1,0 +1,22 @@
+# Nubia configuration options
+
+config MACH_NUBIA
+	bool "Nubia device"
+	depends on ARCH_QCOM
+	help
+	  Support for Nubia products
+
+config MACH_NUBIA_SM8250
+	bool "Nubia SM8250"
+	depends on ARCH_QCOM
+	select MACH_NUBIA
+	help
+	  Support for Nubia SM8250 devices
+
+menu "Nubia board selection"
+	config MACH_NUBIA_NX659J
+		bool "Nubia NX659J board"
+		select MACH_NUBIA_SM8250
+		help
+		  Support for Nubia Red Magic 5G
+endmenu
