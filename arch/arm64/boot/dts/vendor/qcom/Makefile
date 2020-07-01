@@ -1,3 +1,12 @@
+ifeq ($(CONFIG_MACH_NUBIA),y)
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_MACH_NUBIA_NX659J) += \
+    nubia-NX659J-kona-mtp-overlay.dtbo
+nubia-NX659J-kona-mtp-overlay.dtbo-base := nubia-NX659J-kona-mtp.dtb
+else
+dtb-$(CONFIG_MACH_NUBIA_NX659J) += nubia-NX659J-kona-mtp.dtb
+endif
+else
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
         dtbo-$(CONFIG_ARCH_KONA) += \
                 kona-cdp-overlay.dtbo \
@@ -33,6 +42,7 @@ dtb-$(CONFIG_ARCH_KONA) += kona-rumi.dtb \
         kona-v2.1-cdp.dtb \
         kona-v2.1-qrd.dtb \
         kona-v2.1-hdk.dtb
+endif
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
