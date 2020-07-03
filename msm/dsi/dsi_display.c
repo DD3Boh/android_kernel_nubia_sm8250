@@ -2725,6 +2725,23 @@ static int dsi_display_wake_up(struct dsi_display *display)
 	return 0;
 }
 
+static void dsi_display_mask_overflow(struct dsi_display *display, u32 flags,
+						bool enable)
+{
+	struct dsi_display_ctrl *ctrl;
+	int i;
+
+	if (!(flags & DSI_CTRL_CMD_LAST_COMMAND))
+		return;
+
+	display_for_each_ctrl(i, display) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl)
+			continue;
+		dsi_ctrl_mask_overflow(ctrl->ctrl, enable);
+	}
+}
+
 static int dsi_display_broadcast_cmd(struct dsi_display *display,
 				     const struct mipi_dsi_msg *msg)
 {
@@ -2754,6 +2771,7 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	 * 2. Trigger commands
 	 */
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	dsi_display_mask_overflow(display, m_flags, true);
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, msg, &m_flags);
 	if (rc) {
 		DSI_ERR("[%s] cmd transfer failed on master,rc=%d\n",
@@ -2789,6 +2807,7 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	}
 
 error:
+	dsi_display_mask_overflow(display, m_flags, false);
 	return rc;
 }
 
@@ -4078,18 +4097,19 @@ static void _dsi_display_calc_pipe_delay(struct dsi_display *display,
 	struct dsi_display_ctrl *m_ctrl;
 	struct dsi_ctrl *dsi_ctrl;
 	struct dsi_phy_cfg *cfg;
+	int phy_ver;
 
 	m_ctrl = &display->ctrl[display->clk_master_idx];
 	dsi_ctrl = m_ctrl->ctrl;
 
 	cfg = &(m_ctrl->phy->cfg);
 
-	esc_clk_rate_hz = dsi_ctrl->clk_freq.esc_clk_rate * 1000;
-	pclk_to_esc_ratio = ((dsi_ctrl->clk_freq.pix_clk_rate * 1000) /
+	esc_clk_rate_hz = dsi_ctrl->clk_freq.esc_clk_rate;
+	pclk_to_esc_ratio = (dsi_ctrl->clk_freq.pix_clk_rate /
 			     esc_clk_rate_hz);
-	byte_to_esc_ratio = ((dsi_ctrl->clk_freq.byte_clk_rate * 1000) /
+	byte_to_esc_ratio = (dsi_ctrl->clk_freq.byte_clk_rate /
 			     esc_clk_rate_hz);
-	hr_bit_to_esc_ratio = ((dsi_ctrl->clk_freq.byte_clk_rate * 4 * 1000) /
+	hr_bit_to_esc_ratio = ((dsi_ctrl->clk_freq.byte_clk_rate * 4) /
 					esc_clk_rate_hz);
 
 	hsync_period = DSI_H_TOTAL_DSC(&mode->timing);
@@ -4115,8 +4135,17 @@ static void _dsi_display_calc_pipe_delay(struct dsi_display *display,
 			  ((cfg->timing.lane_v3[4] >> 1) + 1)) /
 			 hr_bit_to_esc_ratio);
 
-	/* 130 us pll delay recommended by h/w doc */
-	delay->pll_delay = ((130 * esc_clk_rate_hz) / 1000000) * 2;
+	/*
+	 * 100us pll delay recommended for phy ver 2.0 and 3.0
+	 * 25us pll delay recommended for phy ver 4.0
+	 */
+	phy_ver = dsi_phy_get_version(m_ctrl->phy);
+	if (phy_ver <= DSI_PHY_VERSION_3_0)
+		delay->pll_delay = 100;
+	else
+		delay->pll_delay = 25;
+
+	delay->pll_delay = ((delay->pll_delay * esc_clk_rate_hz) / 1000000);
 }
 
 /*
@@ -6048,12 +6077,15 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	return 0;
 }
 
-void dsi_display_adjust_mode_timing(
-			struct dsi_dyn_clk_caps *dyn_clk_caps,
+void dsi_display_adjust_mode_timing(struct dsi_display *display,
 			struct dsi_display_mode *dsi_mode,
 			int lanes, int bpp)
 {
 	u64 new_htotal, new_vtotal, htotal, vtotal, old_htotal, div;
+	struct dsi_dyn_clk_caps *dyn_clk_caps;
+	u32 bits_per_symbol = 16, num_of_symbols = 7; /* For Cphy */
+
+	dyn_clk_caps = &(display->panel->dyn_clk_caps);
 
 	if (!dyn_clk_caps->maintain_const_fps)
 		return;
@@ -6068,21 +6100,31 @@ void dsi_display_adjust_mode_timing(
 	case DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP:
 		vtotal = DSI_V_TOTAL(&dsi_mode->timing);
 		old_htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
+		do_div(old_htotal, display->ctrl_count);
 		new_htotal = dsi_mode->timing.clk_rate_hz * lanes;
 		div = bpp * vtotal * dsi_mode->timing.refresh_rate;
+		if (dsi_display_is_type_cphy(display)) {
+			new_htotal = new_htotal * bits_per_symbol;
+			div = div * num_of_symbols;
+		}
 		do_div(new_htotal, div);
 		if (old_htotal > new_htotal)
 			dsi_mode->timing.h_front_porch -=
-					(old_htotal - new_htotal);
+			((old_htotal - new_htotal) * display->ctrl_count);
 		else
 			dsi_mode->timing.h_front_porch +=
-					(new_htotal - old_htotal);
+			((new_htotal - old_htotal) * display->ctrl_count);
 		break;
 
 	case DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP:
 		htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
+		do_div(htotal, display->ctrl_count);
 		new_vtotal = dsi_mode->timing.clk_rate_hz * lanes;
 		div = bpp * htotal * dsi_mode->timing.refresh_rate;
+		if (dsi_display_is_type_cphy(display)) {
+			new_vtotal = new_vtotal * bits_per_symbol;
+			div = div * num_of_symbols;
+		}
 		do_div(new_vtotal, div);
 		dsi_mode->timing.v_front_porch = new_vtotal -
 				dsi_mode->timing.v_back_porch -
@@ -6135,7 +6177,7 @@ static void _dsi_display_populate_bit_clks(struct dsi_display *display,
 		 */
 		src->timing.clk_rate_hz = dyn_clk_caps->bit_clk_list[0];
 
-		dsi_display_adjust_mode_timing(dyn_clk_caps, src, lanes, bpp);
+		dsi_display_adjust_mode_timing(display, src, lanes, bpp);
 
 		src->pixel_clk_khz =
 			div_u64(src->timing.clk_rate_hz * lanes, bpp);
@@ -6157,7 +6199,7 @@ static void _dsi_display_populate_bit_clks(struct dsi_display *display,
 			memcpy(dst, src, sizeof(struct dsi_display_mode));
 			dst->timing.clk_rate_hz = dyn_clk_caps->bit_clk_list[i];
 
-			dsi_display_adjust_mode_timing(dyn_clk_caps, dst, lanes,
+			dsi_display_adjust_mode_timing(display, dst, lanes,
 									bpp);
 
 			dst->pixel_clk_khz =
