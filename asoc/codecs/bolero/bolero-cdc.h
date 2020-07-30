@@ -55,6 +55,7 @@ enum {
 	BOLERO_MACRO_EVT_BCS_CLK_OFF,
 	BOLERO_MACRO_EVT_SSR_GFMUX_UP,
 	BOLERO_MACRO_EVT_PRE_SSR_UP,
+	BOLERO_MACRO_EVT_RX_PA_GAIN_UPDATE,
 };
 
 enum {
@@ -101,6 +102,7 @@ typedef int (*rsc_clk_cb_t)(struct device *dev, u16 event);
 #if IS_ENABLED(CONFIG_SND_SOC_BOLERO)
 int bolero_register_res_clk(struct device *dev, rsc_clk_cb_t cb);
 void bolero_unregister_res_clk(struct device *dev);
+bool bolero_is_va_macro_registered(struct device *dev);
 int bolero_register_macro(struct device *dev, u16 macro_id,
 			  struct macro_ops *ops);
 void bolero_unregister_macro(struct device *dev, u16 macro_id);
@@ -130,6 +132,11 @@ static inline int bolero_register_res_clk(struct device *dev, rsc_clk_cb_t cb)
 }
 static inline void bolero_unregister_res_clk(struct device *dev)
 {
+}
+
+static bool bolero_is_va_macro_registered(struct device *dev)
+{
+	return false;
 }
 
 static inline int bolero_register_macro(struct device *dev,

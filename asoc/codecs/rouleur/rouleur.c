@@ -26,6 +26,7 @@
 #include <asoc/msm-cdc-pinctrl.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include <asoc/msm-cdc-supply.h>
+#include <linux/power_supply.h>
 
 #define DRV_NAME "rouleur_codec"
 
@@ -35,6 +36,8 @@
 #define ROULEUR_VERSION_ENTRY_SIZE 32
 
 #define NUM_ATTEMPTS 5
+#define SOC_THRESHOLD_LEVEL 25
+#define LOW_SOC_MBIAS_REG_MIN_VOLTAGE 2850000
 
 enum {
 	CODEC_TX = 0,
@@ -362,6 +365,8 @@ static int rouleur_rx_clk_enable(struct snd_soc_component *component)
 		snd_soc_component_update_bits(component,
 				ROULEUR_ANA_HPHPA_FSM_CLK, 0x80, 0x80);
 		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_NCP_VCTRL, 0x07, 0x06);
+		snd_soc_component_update_bits(component,
 				ROULEUR_ANA_NCP_EN, 0x01, 0x01);
 		usleep_range(500, 510);
 	}
@@ -592,11 +597,11 @@ static int rouleur_codec_ear_lo_dac_event(struct snd_soc_dapm_widget *w,
 				ROULEUR_DIG_SWR_CDC_RX0_CTL,
 				0x80, 0x00);
 		snd_soc_component_update_bits(component,
-				ROULEUR_DIG_SWR_CDC_RX_GAIN_CTL,
-				0x04, 0x04);
-		snd_soc_component_update_bits(component,
 				ROULEUR_DIG_SWR_CDC_RX_CLK_CTL,
 				0x01, 0x01);
+		snd_soc_component_update_bits(component,
+				ROULEUR_DIG_SWR_CDC_RX_GAIN_CTL,
+				0x04, 0x04);
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -635,7 +640,7 @@ static int rouleur_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 				    true);
 
 		set_bit(HPH_PA_DELAY, &rouleur->status_mask);
-		usleep_range(5000, 5100);
+		usleep_range(200, 210);
 		snd_soc_component_update_bits(component,
 			ROULEUR_DIG_SWR_PDM_WD_CTL1,
 			0x03, 0x03);
@@ -671,9 +676,8 @@ static int rouleur_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
-		 * 7ms sleep is required after PA is disabled as per
-		 * HW requirement. If compander is disabled, then
-		 * 20ms delay is required.
+		 * 5ms sleep is required after PA is disabled as per
+		 * HW requirement.
 		 */
 		if (test_bit(HPH_PA_DELAY, &rouleur->status_mask)) {
 
@@ -710,7 +714,7 @@ static int rouleur_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 				    rouleur->rx_swr_dev->dev_num,
 				    true);
 		set_bit(HPH_PA_DELAY, &rouleur->status_mask);
-		usleep_range(5000, 5100);
+		usleep_range(200, 210);
 		snd_soc_component_update_bits(component,
 				ROULEUR_DIG_SWR_PDM_WD_CTL0,
 				0x03, 0x03);
@@ -784,20 +788,31 @@ static int rouleur_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 			    rouleur->rx_swr_dev->dev_num,
 			    true);
 		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_5,
+				0x04, 0x00);
+		usleep_range(1000, 1010);
+		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_4,
+				0x0F, 0x0F);
+		usleep_range(1000, 1010);
+		snd_soc_component_update_bits(component,
 				ROULEUR_ANA_COMBOPA_CTL,
 				0x40, 0x00);
-		usleep_range(5000, 5100);
 		snd_soc_component_update_bits(component,
 				ROULEUR_DIG_SWR_PDM_WD_CTL0,
 				0x03, 0x03);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		usleep_range(5000, 5100);
+		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_4,
+				0x0F, 0x04);
 		if (rouleur->update_wcd_event)
 			rouleur->update_wcd_event(rouleur->handle,
 						WCD_BOLERO_EVT_RX_MUTE,
 						(WCD_RX1 << 0x10));
-			wcd_enable_irq(&rouleur->irq_info,
-					ROULEUR_IRQ_HPHL_PDM_WD_INT);
+		wcd_enable_irq(&rouleur->irq_info,
+				ROULEUR_IRQ_HPHL_PDM_WD_INT);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		wcd_disable_irq(&rouleur->irq_info,
@@ -834,23 +849,34 @@ static int rouleur_codec_enable_lo_pa(struct snd_soc_dapm_widget *w,
 			    rouleur->rx_swr_dev->dev_num,
 			    true);
 		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_5,
+				0x04, 0x00);
+		usleep_range(1000, 1010);
+		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_4,
+				0x0F, 0x0F);
+		usleep_range(1000, 1010);
+		snd_soc_component_update_bits(component,
 				ROULEUR_ANA_COMBOPA_CTL,
 				0x40, 0x40);
-		usleep_range(5000, 5100);
 		snd_soc_component_update_bits(component,
 				ROULEUR_DIG_SWR_PDM_WD_CTL0,
 				0x03, 0x03);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		usleep_range(5000, 5100);
+		snd_soc_component_update_bits(component,
+				ROULEUR_ANA_COMBOPA_CTL_4,
+				0x0F, 0x04);
 		if (rouleur->update_wcd_event)
 			rouleur->update_wcd_event(rouleur->handle,
 						WCD_BOLERO_EVT_RX_MUTE,
 						(WCD_RX1 << 0x10));
-			wcd_enable_irq(&rouleur->irq_info,
-					ROULEUR_IRQ_HPHL_PDM_WD_INT);
+		wcd_enable_irq(&rouleur->irq_info,
+				ROULEUR_IRQ_HPHL_PDM_WD_INT);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-			wcd_disable_irq(&rouleur->irq_info,
+		wcd_disable_irq(&rouleur->irq_info,
 					ROULEUR_IRQ_HPHL_PDM_WD_INT);
 		if (rouleur->update_wcd_event)
 			rouleur->update_wcd_event(rouleur->handle,
@@ -1977,6 +2003,107 @@ done:
 	return rc;
 }
 
+static int rouleur_battery_supply_cb(struct notifier_block *nb,
+			unsigned long event, void *data)
+{
+	struct power_supply *psy = data;
+	struct rouleur_priv *rouleur =
+		container_of(nb, struct rouleur_priv, psy_nb);
+
+	if (strcmp(psy->desc->name, "battery"))
+		return NOTIFY_OK;
+	queue_work(system_freezable_wq, &rouleur->soc_eval_work);
+
+	return NOTIFY_OK;
+}
+
+static int rouleur_read_battery_soc(struct rouleur_priv *rouleur, int *soc_val)
+{
+	static struct power_supply *batt_psy;
+	union power_supply_propval ret = {0,};
+	int err = 0;
+
+	*soc_val = 100;
+	if (!batt_psy)
+		batt_psy = power_supply_get_by_name("battery");
+	if (batt_psy) {
+		err = power_supply_get_property(batt_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		if (err) {
+			pr_err("%s: battery SoC read error:%d\n",
+				__func__, err);
+			return err;
+		}
+		*soc_val = ret.intval;
+	}
+	pr_debug("%s: soc:%d\n", __func__, *soc_val);
+
+	return err;
+}
+
+static void rouleur_evaluate_soc(struct work_struct *work)
+{
+	struct rouleur_priv *rouleur =
+		container_of(work, struct rouleur_priv, soc_eval_work);
+	int soc_val = 0, ret = 0;
+	struct rouleur_pdata *pdata = NULL;
+
+	pdata = dev_get_platdata(rouleur->dev);
+	if (!pdata) {
+		dev_err(rouleur->dev, "%s: pdata is NULL\n", __func__);
+		return;
+	}
+
+	if (rouleur_read_battery_soc(rouleur, &soc_val) < 0) {
+		dev_err(rouleur->dev, "%s unable to read battery SoC\n",
+			__func__);
+		return;
+	}
+
+	if (soc_val < SOC_THRESHOLD_LEVEL) {
+		dev_dbg(rouleur->dev,
+			"%s battery SoC less than threshold soc_val = %d\n",
+			__func__, soc_val);
+		/* Reduce PA Gain by 6DB for low SoC */
+		if (rouleur->update_wcd_event)
+			rouleur->update_wcd_event(rouleur->handle,
+					WCD_BOLERO_EVT_RX_PA_GAIN_UPDATE,
+					true);
+		rouleur->low_soc = true;
+		ret = msm_cdc_set_supply_min_voltage(rouleur->dev,
+						 rouleur->supplies,
+						 pdata->regulator,
+						 pdata->num_supplies,
+						 "cdc-vdd-mic-bias",
+						 LOW_SOC_MBIAS_REG_MIN_VOLTAGE,
+						 true);
+		if (ret < 0)
+			dev_err(rouleur->dev,
+				"%s unable to set mbias min voltage\n",
+				__func__);
+	} else {
+		if (rouleur->low_soc == true) {
+			/* Reset PA Gain to default for normal SoC */
+			if (rouleur->update_wcd_event)
+				rouleur->update_wcd_event(rouleur->handle,
+					WCD_BOLERO_EVT_RX_PA_GAIN_UPDATE,
+					false);
+			ret = msm_cdc_set_supply_min_voltage(rouleur->dev,
+						rouleur->supplies,
+						pdata->regulator,
+						pdata->num_supplies,
+						"cdc-vdd-mic-bias",
+						LOW_SOC_MBIAS_REG_MIN_VOLTAGE,
+						false);
+			if (ret < 0)
+				dev_err(rouleur->dev,
+					"%s unable to set mbias min voltage\n",
+					__func__);
+			rouleur->low_soc = false;
+		}
+	}
+}
+
 static int rouleur_soc_codec_probe(struct snd_soc_component *component)
 {
 	struct rouleur_priv *rouleur = snd_soc_component_get_drvdata(component);
@@ -2047,7 +2174,16 @@ static int rouleur_soc_codec_probe(struct snd_soc_component *component)
 			return ret;
 		}
 	}
+	rouleur->low_soc = false;
 	rouleur->dev_up = true;
+	/* Register notifier to change gain based on state of charge */
+	INIT_WORK(&rouleur->soc_eval_work, rouleur_evaluate_soc);
+	rouleur->psy_nb.notifier_call = rouleur_battery_supply_cb;
+	if (power_supply_reg_notifier(&rouleur->psy_nb) < 0)
+		dev_dbg(rouleur->dev,
+			"%s: could not register pwr supply notifier\n",
+			__func__);
+	queue_work(system_freezable_wq, &rouleur->soc_eval_work);
 done:
 	return ret;
 }
