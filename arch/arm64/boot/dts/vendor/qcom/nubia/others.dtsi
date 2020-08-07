@@ -93,7 +93,7 @@
 			label = "game_sw";
 			gpios = <&tlmm 126 0>;
 			linux,input-type = <5>;
-			linux,code = <0x0f>;
+			linux,code = <SW_GAMESWITCH_CHANGE>;
 			debounce-interval = <15>;
 			gpio-key,wakeup;
 		};
