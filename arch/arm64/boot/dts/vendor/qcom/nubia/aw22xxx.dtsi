@@ -23,55 +23,56 @@
 	};
 };
 
-&tlmm{
-		aw22xxx_reset {
-			aw22xxx_reset_active: aw22xxx_reset_active {
-				mux {
-					pins = "gpio14";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio14";
-					drive-strength = <6>;
-					bias-pull-up;
-				};
+&tlmm {
+	aw22xxx_reset {
+		aw22xxx_reset_active: aw22xxx_reset_active {
+			mux {
+				pins = "gpio14";
+				function = "gpio";
 			};
-			
-			aw22xxx_reset_suspend: aw22xxx_reset_suspend {
-				mux {
-					pins = "gpio14";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio14";
-					drive-strength = <6>;
-					bias-pull-up;
-				};
+			config {
+				pins = "gpio14";
+				drive-strength = <6>;
+				bias-pull-up;
 			};
 		};
 
-		aw22xxx_int {
-			aw22xxx_int_active: aw22xxx_int_active {
-				mux {
-					pins = "gpio15";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio15";
-					drive-strength = <6>;
-					bias-pull-up;
-				};
+		aw22xxx_reset_suspend: aw22xxx_reset_suspend {
+			mux {
+				pins = "gpio14";
+				function = "gpio";
 			};
-			aw22xxx_int_suspend: aw22xxx_int_suspend {
-				mux {
-					pins = "gpio15";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio15";
-					drive-strength = <6>;
-					bias-pull-up;
-				};
+			config {
+				pins = "gpio14";
+				drive-strength = <6>;
+				bias-pull-up;
 			};
 		};
+	};
+
+	aw22xxx_int {
+		aw22xxx_int_active: aw22xxx_int_active {
+			mux {
+				pins = "gpio15";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio15";
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+
+		aw22xxx_int_suspend: aw22xxx_int_suspend {
+			mux {
+				pins = "gpio15";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio15";
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+	};
 };

@@ -43,9 +43,9 @@
 };
 
 &pm8150a_l10 {
-     status = "ok";
-     qcom,init-voltage = <3000000>;
-     regulator-always-on;
+	status = "ok";
+	qcom,init-voltage = <3000000>;
+	regulator-always-on;
 };
 
 &tlmm {
@@ -57,6 +57,7 @@
 				bias-pull-up;
 			};
 		};
+
 		stk_irq_suspend: stk_irq_suspend {
 			config {
 				pins = "gpio122";

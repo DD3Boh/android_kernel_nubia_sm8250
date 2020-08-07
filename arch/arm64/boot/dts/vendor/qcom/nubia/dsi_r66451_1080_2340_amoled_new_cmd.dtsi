@@ -44,14 +44,14 @@
 		qcom,dynamic-mode-switch-type = "dynamic-resolution-switch-immediate";
 
 /*********************ESD CHECK***********************/
-        qcom,esd-check-enabled; 
-        qcom,mdss-dsi-panel-status-check-mode = "reg_read"; 
-        qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0a
+		qcom,esd-check-enabled; 
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read"; 
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0a
 					06 01 00 01 05 00 01 f9
 					06 01 00 01 05 00 01 f8]; 
-        qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
-        qcom,mdss-dsi-panel-status-value = <0x1c 0x00 0x11 0x00 0x00 0x89 0x30 0x80 0x09 0x24 0x04 0x38>;
-        qcom,mdss-dsi-panel-status-read-length = <1 1 10>;
+		qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-panel-status-value = <0x1c 0x00 0x11 0x00 0x00 0x89 0x30 0x80 0x09 0x24 0x04 0x38>;
+		qcom,mdss-dsi-panel-status-read-length = <1 1 10>;
 /*********************ESD CHECK***********************/
 
 		qcom,mdss-dsi-display-timings {
@@ -153,18 +153,18 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 /***********************ACL START*************************/
-                nubia,mdss-dsi-cabc-command-off = [
-                    15 01 00 00 00 00 02 55 00];
-                nubia,mdss-dsi-cabc-command-level1 = [
-                    15 01 00 00 00 00 02 55 01];
-                nubia,mdss-dsi-cabc-command-level2 = [
-                    15 01 00 00 00 00 02 55 02];
-                nubia,mdss-dsi-cabc-command-level3 = [
-                    15 01 00 00 00 00 02 55 03];
-                nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-off = [
+					15 01 00 00 00 00 02 55 00];
+				nubia,mdss-dsi-cabc-command-level1 = [
+					15 01 00 00 00 00 02 55 01];
+				nubia,mdss-dsi-cabc-command-level2 = [
+					15 01 00 00 00 00 02 55 02];
+				nubia,mdss-dsi-cabc-command-level3 = [
+					15 01 00 00 00 00 02 55 03];
+				nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
 /**********************ACL END****************************/
 /***********************AOD START*************************/
 				qcom,mdss-dsi-nolp-command = [ // 90 out aod
@@ -212,21 +212,21 @@
 /**********************AOD END****************************/
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-fp-command-off = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 00];
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
 				nubia,mdss-dsi-hbm-fp-command-on = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 E0];
-                nubia,mdss-dsi-hbm-command-off = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 00];
-                nubia,mdss-dsi-hbm-command-on = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 E0];
-			    nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-command-off = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
+				nubia,mdss-dsi-hbm-command-on = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,compression-mode = "dsc";
@@ -337,18 +337,18 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 /***********************ACL START*************************/
-                nubia,mdss-dsi-cabc-command-off = [
-                    15 01 00 00 00 00 02 55 00];
-                nubia,mdss-dsi-cabc-command-level1 = [
-                    15 01 00 00 00 00 02 55 01];
-                nubia,mdss-dsi-cabc-command-level2 = [
-                    15 01 00 00 00 00 02 55 02];
-                nubia,mdss-dsi-cabc-command-level3 = [
-                    15 01 00 00 00 00 02 55 03];
-                nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-off = [
+					15 01 00 00 00 00 02 55 00];
+				nubia,mdss-dsi-cabc-command-level1 = [
+					15 01 00 00 00 00 02 55 01];
+				nubia,mdss-dsi-cabc-command-level2 = [
+					15 01 00 00 00 00 02 55 02];
+				nubia,mdss-dsi-cabc-command-level3 = [
+					15 01 00 00 00 00 02 55 03];
+				nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
 /**********************ACL END****************************/
 /***********************AOD START*************************/
 				qcom,mdss-dsi-nolp-command = [ //60 out aod
@@ -396,21 +396,21 @@
 /**********************AOD END****************************/
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-fp-command-off = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 00];
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
 				nubia,mdss-dsi-hbm-fp-command-on = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 E0];
-                nubia,mdss-dsi-hbm-command-off = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 00];
-                nubia,mdss-dsi-hbm-command-on = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 E0];
-			    nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-command-off = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
+				nubia,mdss-dsi-hbm-command-on = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,compression-mode = "dsc";
@@ -521,18 +521,18 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 /***********************ACL START*************************/
-                nubia,mdss-dsi-cabc-command-off = [
-                    15 01 00 00 00 00 02 55 00];
-                nubia,mdss-dsi-cabc-command-level1 = [
-                    15 01 00 00 00 00 02 55 01];
-                nubia,mdss-dsi-cabc-command-level2 = [
-                    15 01 00 00 00 00 02 55 02];
-                nubia,mdss-dsi-cabc-command-level3 = [
-                    15 01 00 00 00 00 02 55 03];
-                nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-off = [
+					15 01 00 00 00 00 02 55 00];
+				nubia,mdss-dsi-cabc-command-level1 = [
+					15 01 00 00 00 00 02 55 01];
+				nubia,mdss-dsi-cabc-command-level2 = [
+					15 01 00 00 00 00 02 55 02];
+				nubia,mdss-dsi-cabc-command-level3 = [
+					15 01 00 00 00 00 02 55 03];
+				nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
 /**********************ACL END****************************/
 /***********************AOD START*************************/
 				qcom,mdss-dsi-nolp-command = [ //62 out aod
@@ -580,21 +580,21 @@
 /**********************AOD END****************************/
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-fp-command-off = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 00];
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
 				nubia,mdss-dsi-hbm-fp-command-on = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 E0];
-                nubia,mdss-dsi-hbm-command-off = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 00];
-                nubia,mdss-dsi-hbm-command-on = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 E0];
-			    nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-command-off = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
+				nubia,mdss-dsi-hbm-command-on = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,compression-mode = "dsc";
@@ -703,18 +703,18 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 /***********************ACL START*************************/
-                nubia,mdss-dsi-cabc-command-off = [
-                    15 01 00 00 00 00 02 55 00];
-                nubia,mdss-dsi-cabc-command-level1 = [
-                    15 01 00 00 00 00 02 55 01];
-                nubia,mdss-dsi-cabc-command-level2 = [
-                    15 01 00 00 00 00 02 55 02];
-                nubia,mdss-dsi-cabc-command-level3 = [
-                    15 01 00 00 00 00 02 55 03];
-                nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-off = [
+					15 01 00 00 00 00 02 55 00];
+				nubia,mdss-dsi-cabc-command-level1 = [
+					15 01 00 00 00 00 02 55 01];
+				nubia,mdss-dsi-cabc-command-level2 = [
+					15 01 00 00 00 00 02 55 02];
+				nubia,mdss-dsi-cabc-command-level3 = [
+					15 01 00 00 00 00 02 55 03];
+				nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
 /**********************ACL END****************************/
 /***********************AOD START*************************/
 				qcom,mdss-dsi-nolp-command = [ //120 out aod
@@ -761,21 +761,21 @@
 /**********************AOD END****************************/
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-fp-command-off = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 00];
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
 				nubia,mdss-dsi-hbm-fp-command-on = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 E0];
-                nubia,mdss-dsi-hbm-command-off = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 00];
-                nubia,mdss-dsi-hbm-command-on = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 E0];
-			    nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-command-off = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
+				nubia,mdss-dsi-hbm-command-on = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,compression-mode = "dsc";
@@ -886,18 +886,18 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 /***********************ACL START*************************/
-                nubia,mdss-dsi-cabc-command-off = [
-                    15 01 00 00 00 00 02 55 00];
-                nubia,mdss-dsi-cabc-command-level1 = [
-                    15 01 00 00 00 00 02 55 01];
-                nubia,mdss-dsi-cabc-command-level2 = [
-                    15 01 00 00 00 00 02 55 02];
-                nubia,mdss-dsi-cabc-command-level3 = [
-                    15 01 00 00 00 00 02 55 03];
-                nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
-                nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-off = [
+					15 01 00 00 00 00 02 55 00];
+				nubia,mdss-dsi-cabc-command-level1 = [
+					15 01 00 00 00 00 02 55 01];
+				nubia,mdss-dsi-cabc-command-level2 = [
+					15 01 00 00 00 00 02 55 02];
+				nubia,mdss-dsi-cabc-command-level3 = [
+					15 01 00 00 00 00 02 55 03];
+				nubia,mdss-dsi-cabc-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level1-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level2-state = "dsi_hs_mode";
+				nubia,mdss-dsi-cabc-command-level3-state = "dsi_hs_mode";
 /**********************ACL END****************************/
 /***********************AOD START*************************/
 
@@ -945,21 +945,21 @@
 /**********************AOD END****************************/
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-fp-command-off = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 00];
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
 				nubia,mdss-dsi-hbm-fp-command-on = [
-				    39 01 00 00 00 00 02 B0 00
-				    15 01 00 00 00 00 02 53 E0];
-                nubia,mdss-dsi-hbm-command-off = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 00];
-                nubia,mdss-dsi-hbm-command-on = [
-                    39 01 00 00 00 00 02 B0 00
-                    15 01 00 00 00 00 02 53 E0];
-			    nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
-			    nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
-                nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-command-off = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 00];
+				nubia,mdss-dsi-hbm-command-on = [
+					39 01 00 00 00 00 02 B0 00
+					15 01 00 00 00 00 02 53 E0];
+				nubia,mdss-dsi-hbm-fp-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-fp-command-on-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
+				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,compression-mode = "dsc";

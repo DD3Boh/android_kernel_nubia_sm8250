@@ -5,18 +5,18 @@
 	/delete-node/ cam_sensor_suspend_rear_aux;
 	/delete-node/ cam_sensor_aux_vana;
 	cam_sensor_aux_vana: cam_sensor_aux_vana {
-			/*  AVDD LDO */
-			mux {
-				pins = "gpio117";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio117";
-				bias-disable; /* No PULL */
-				drive-strength = <2>; /* 2 MA */
-			};
+		/*  AVDD LDO */
+		mux {
+			pins = "gpio117";
+			function = "gpio";
 		};
+
+		config {
+			pins = "gpio117";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
 	
 	cam_sensor_active_rear_aux: cam_sensor_active_rear_aux {
 		/* RESET SALVE */
