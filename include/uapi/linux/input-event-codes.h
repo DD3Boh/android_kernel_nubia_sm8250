@@ -337,6 +337,10 @@
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+#ifdef CONFIG_NUBIA_KEYBOARD_GAMESWITCH
+#define KEY_GAMESWITCH_ON	250
+#define KEY_GAMESWITCH_OFF	251
+#endif
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
@@ -805,6 +809,7 @@
 #define SW_HPHR_OVERCURRENT	0x12  /* set = over current on right hph */
 #define SW_MICROPHONE2_INSERT	0x13  /* set = inserted */
 #define SW_UNSUPPORT_INSERT	0x14  /* set = unsupported device inserted */
+#define SW_GAMESWITCH_CHANGE 0x15
 #define SW_MAX			0x20
 #define SW_CNT			(SW_MAX+1)
 
