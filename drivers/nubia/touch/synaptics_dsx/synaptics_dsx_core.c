@@ -2024,9 +2024,9 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 
 		if(gesture_type == DOUBLE_CLICK && rmi4_data->gesture_flag == true) {
 		
-			input_report_key(rmi4_data->input_dev, KEY_F10, 1);
+			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 1);
 			input_sync(rmi4_data->input_dev);
-			input_report_key(rmi4_data->input_dev, KEY_F10, 0);
+			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
 			ts_err(" DOUBLE_CLICK[%d]\n",
 			rmi4_data->gesture_detection[0]);
