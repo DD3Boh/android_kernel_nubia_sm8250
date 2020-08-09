@@ -2913,6 +2913,7 @@ ssize_t dsi_panel_transfer_cmd(struct mipi_dsi_host *host,
 	struct dsi_display *display;
 	int rc = 0, ret = 0;
 	int ctrl_idx;
+	u32 cmd_flags;
 
 	if (!host || !msg) {
 		pr_err("[%s] dsi_host_transfer Invalid params\n", __FUNCTION__);
@@ -2948,9 +2949,8 @@ ssize_t dsi_panel_transfer_cmd(struct mipi_dsi_host *host,
 
 	ctrl_idx = (msg->flags & MIPI_DSI_MSG_UNICAST) ? msg->ctrl : 0;
 
-	rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
-			(DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
-			DSI_CTRL_CMD_CUSTOM_DMA_SCHED | DSI_CTRL_CMD_LAST_COMMAND)); /*DSI_CTRL_CMD_READ*/
+	cmd_flags = DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ | DSI_CTRL_CMD_CUSTOM_DMA_SCHED | DSI_CTRL_CMD_LAST_COMMAND;
+	rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg, &cmd_flags);
 	if (rc <= 0) {
 	pr_err("[%s] cmd transfer failed, rc=%d\n",
 			display->name, rc);
