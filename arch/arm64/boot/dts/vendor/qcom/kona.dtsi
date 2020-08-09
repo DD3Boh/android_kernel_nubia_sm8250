@@ -3386,6 +3386,7 @@
 		/* soc2sp rmb shared register physical address */
 		qcom,spcom-soc2sp-rmb-reg-addr = <0x01881030>;
 		qcom,spcom-soc2sp-rmb-sp-ssr-bit = <0>;
+		qcom,spcom-rmb-err-reg-addr = <0x188103c>;
 		status = "ok";
 	};
 
