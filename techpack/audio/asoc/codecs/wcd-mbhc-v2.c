@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
+#define DEBUG
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -123,13 +124,15 @@ void wcd_enable_curr_micbias(const struct wcd_mbhc *mbhc,
 	pr_debug("%s: enter, cs_mb_en: %d\n", __func__, cs_mb_en);
 
 	switch (cs_mb_en) {
-	case WCD_MBHC_EN_CS:
-		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MICB_CTRL, 0);
-		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
+	//case WCD_MBHC_EN_CS:
+		//WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MICB_CTRL, 0);
+		//WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
 		/* Program Button threshold registers as per CS */
-		wcd_program_btn_threshold(mbhc, false);
-		break;
+		//wcd_program_btn_threshold(mbhc, false);
+		//break;
+	case WCD_MBHC_EN_CS:
 	case WCD_MBHC_EN_MB:
+	case WCD_MBHC_EN_PULLUP:
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
 
@@ -138,13 +141,13 @@ void wcd_enable_curr_micbias(const struct wcd_mbhc *mbhc,
 		/* Program Button threshold registers as per MICBIAS */
 		wcd_program_btn_threshold(mbhc, true);
 		break;
-	case WCD_MBHC_EN_PULLUP:
-		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
-		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
-		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MICB_CTRL, 1);
-		/* Program Button threshold registers as per MICBIAS */
-		wcd_program_btn_threshold(mbhc, true);
-		break;
+	//case WCD_MBHC_EN_PULLUP:
+	//	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
+	//	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
+	//	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MICB_CTRL, 1);
+	//	/* Program Button threshold registers as per MICBIAS */
+	//	wcd_program_btn_threshold(mbhc, true);
+	//	break;
 	case WCD_MBHC_EN_NONE:
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
@@ -941,8 +944,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		/* If moisture is present, then enable polling, disable
 		 * moisture detection and wait for interrupt
 		 */
-		if (wcd_mbhc_moisture_detect(mbhc, detection_type))
+		if (wcd_mbhc_moisture_detect(mbhc, detection_type)){
+			pr_info("%s: wcd_mbhc_moisture_detect return true\n", __func__);
 			goto done;
+		}
 
 		/* Make sure MASTER_BIAS_CTL is enabled */
 		mbhc->mbhc_cb->mbhc_bias(component, true);
