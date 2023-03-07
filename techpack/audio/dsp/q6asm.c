@@ -50,6 +50,9 @@
 
 #define ENC_FRAMES_PER_BUFFER 0x01
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 enum {
 	ASM_TOPOLOGY_CAL = 0,
 	ASM_CUSTOM_TOP_CAL,

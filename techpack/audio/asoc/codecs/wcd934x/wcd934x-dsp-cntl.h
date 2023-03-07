@@ -10,6 +10,9 @@
 #include <sound/soc.h>
 #include <sound/wcd-dsp-mgr.h>
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 enum cdc_ssr_event {
 	WCD_CDC_DOWN_EVENT,
 	WCD_CDC_UP_EVENT,

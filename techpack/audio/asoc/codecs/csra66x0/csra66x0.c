@@ -22,6 +22,9 @@
 #define DRV_NAME "csra66x0_codec"
 #define CSRA66X0_SYSFS_ENTRY_MAX_LEN 64
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 /* CSRA66X0 register default values */
 static struct reg_default csra66x0_reg_defaults[] = {
 	{CSRA66X0_AUDIO_IF_RX_CONFIG1,           0x00},

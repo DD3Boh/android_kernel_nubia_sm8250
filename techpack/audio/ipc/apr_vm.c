@@ -67,6 +67,10 @@ struct apr_private {
 static struct apr_private *apr_priv;
 static bool apr_cf_debug;
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *debugfs_apr_debug;
 static ssize_t apr_debug_write(struct file *filp, const char __user *ubuf,

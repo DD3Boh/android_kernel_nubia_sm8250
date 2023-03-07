@@ -15,6 +15,9 @@
 #include <asoc/wcd9xxx-irq.h>
 #include <asoc/core.h>
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #define WCD_CNTL_DIR_NAME_LEN_MAX 32
 #define WCD_CPE_FLL_MAX_RETRIES 5
 #define WCD_MEM_ENABLE_MAX_RETRIES 20

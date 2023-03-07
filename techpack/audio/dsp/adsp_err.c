@@ -55,6 +55,9 @@
 /* Unexpected error code. */
 #define ADSP_ERR_MAX_STR      "ADSP_ERR_MAX"
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_QDSP_DEBUG)
 static bool adsp_err_panic;
 

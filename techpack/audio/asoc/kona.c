@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
-
+#define DEBUG
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -316,6 +316,7 @@ struct mi2s_conf {
 	struct mutex lock;
 	u32 ref_cnt;
 	u32 msm_is_mi2s_master;
+	bool audio_core_vote;
 };
 
 static u32 mi2s_ebit_clk[MI2S_MAX] = {
@@ -485,7 +486,7 @@ static struct dev_config mi2s_rx_cfg[] = {
 static struct dev_config mi2s_tx_cfg[] = {
 	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
-	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[QUIN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SEN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -908,19 +909,19 @@ static void *def_wcd_mbhc_cal(void);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+	.detect_extn_cable = false,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = KEY_VOLUMEUP,
+	.key_code[2] = KEY_VOLUMEDOWN,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
 	.key_code[7] = 0,
-	.linein_th = 5000,
+	.linein_th = 0,
 	.moisture_en = false,
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
@@ -5025,7 +5026,8 @@ void mi2s_disable_audio_vote(struct snd_pcm_substream *substream)
 		return;
 	}
 
-	if (IS_MSM_INTERFACE_MI2S(index) && IS_FRACTIONAL(sample_rate)) {
+	if ((IS_MSM_INTERFACE_MI2S(index) && IS_FRACTIONAL(sample_rate)) ||
+		mi2s_intf_conf[index].audio_core_vote ) {
 		if (pdata->lpass_audio_hw_vote != NULL) {
 			if (--pdata->core_audio_vote_count == 0) {
 				clk_disable_unprepare(
@@ -5034,6 +5036,7 @@ void mi2s_disable_audio_vote(struct snd_pcm_substream *substream)
 				pr_err("%s: audio vote mismatch\n", __func__);
 				pdata->core_audio_vote_count = 0;
 			}
+			mi2s_intf_conf[index].audio_core_vote = false;
 		} else {
 			pr_err("%s: Invalid lpass audio hw node\n", __func__);
 		}
@@ -5095,6 +5098,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			}
 		}
 		pdata->core_audio_vote_count++;
+		mi2s_intf_conf[index].audio_core_vote = true;
 	}
 
 	if (++mi2s_intf_conf[index].ref_cnt == 1) {
@@ -5612,14 +5616,14 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
-	btn_high[0] = 75;
-	btn_high[1] = 150;
-	btn_high[2] = 237;
-	btn_high[3] = 500;
-	btn_high[4] = 500;
-	btn_high[5] = 500;
-	btn_high[6] = 500;
-	btn_high[7] = 500;
+	btn_high[0] = 100;
+	btn_high[1] = 250;
+	btn_high[2] = 425;
+	btn_high[3] = 425;
+	btn_high[4] = 425;
+	btn_high[5] = 425;
+	btn_high[6] = 425;
+	btn_high[7] = 425;
 
 	return wcd_mbhc_cal;
 }
@@ -6159,6 +6163,7 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 	},
 };
 
+#if 0
 static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
 	{/* hw:x,33 */
 		.name = LPASS_BE_WSA_CDC_DMA_TX_0,
@@ -6174,6 +6179,7 @@ static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
 		.ops = &msm_cdc_dma_be_ops,
 	},
 };
+#endif
 
 static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 	{/* hw:x,34 */
@@ -6269,6 +6275,38 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+#ifdef CONFIG_SND_SOC_MAX98937
+	{
+		.name = "TERT_MI2S TX Hostless",
+		.stream_name = "TERT_MI2S_TX Hostless",
+		.cpu_dai_name = "TERT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = "TERT_MI2S Hostless",
+		.stream_name = "TERT_MI2S Hostless",
+		.cpu_dai_name = "TERT_MI2S_RX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			        SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link msm_common_be_dai_links[] = {
@@ -6776,6 +6814,37 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.ops = &msm_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#ifdef CONFIG_SND_SOC_MAX98937
+	{
+		.name = LPASS_BE_TERT_MI2S_RX,
+		.stream_name = "Tertiary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "max98927",
+		.codec_dai_name = "max98927-aif1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_TX,
+		.stream_name = "Tertiary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "max98927",
+		.codec_dai_name = "max98927-aif1",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+#else
 	{
 		.name = LPASS_BE_TERT_MI2S_RX,
 		.stream_name = "Tertiary MI2S Playback",
@@ -6805,6 +6874,7 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.ops = &msm_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
 		.stream_name = "Quaternary MI2S Playback",
@@ -7283,7 +7353,7 @@ static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
 
 static struct snd_soc_dai_link msm_kona_dai_links[
 			ARRAY_SIZE(msm_common_dai_links) +
-			ARRAY_SIZE(msm_bolero_fe_dai_links) +
+			//ARRAY_SIZE(msm_bolero_fe_dai_links) +
 			ARRAY_SIZE(msm_common_misc_fe_dai_links) +
 			ARRAY_SIZE(msm_common_be_dai_links) +
 			ARRAY_SIZE(msm_mi2s_be_dai_links) +
@@ -7516,11 +7586,11 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		       sizeof(msm_common_dai_links));
 		total_links += ARRAY_SIZE(msm_common_dai_links);
 
-		memcpy(msm_kona_dai_links + total_links,
-		       msm_bolero_fe_dai_links,
-		       sizeof(msm_bolero_fe_dai_links));
-		total_links +=
-			ARRAY_SIZE(msm_bolero_fe_dai_links);
+		//memcpy(msm_kona_dai_links + total_links,
+		//       msm_bolero_fe_dai_links,
+		//       sizeof(msm_bolero_fe_dai_links));
+		//total_links +=
+		//	ARRAY_SIZE(msm_bolero_fe_dai_links);
 
 		memcpy(msm_kona_dai_links + total_links,
 		       msm_common_misc_fe_dai_links,
@@ -8121,6 +8191,7 @@ static void msm_i2s_auxpcm_init(struct platform_device *pdev)
 	for (count = 0; count < MI2S_MAX; count++) {
 		mutex_init(&mi2s_intf_conf[count].lock);
 		mi2s_intf_conf[count].ref_cnt = 0;
+		mi2s_intf_conf[count].audio_core_vote = false;
 	}
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
@@ -8145,6 +8216,7 @@ static void msm_i2s_auxpcm_deinit(void)
 		mutex_destroy(&mi2s_intf_conf[count].lock);
 		mi2s_intf_conf[count].ref_cnt = 0;
 		mi2s_intf_conf[count].msm_is_mi2s_master = 0;
+		mi2s_intf_conf[count].audio_core_vote = false;
 	}
 }
 
@@ -8238,6 +8310,8 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	uint index = 0;
 	struct clk *lpass_audio_hw_vote = NULL;
 
+	dev_info(&pdev->dev, "%s: into machine driver\n",__func__);
+
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "%s: No platform supplied from device tree\n", __func__);
 		return -EINVAL;
@@ -8245,8 +8319,10 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_asoc_mach_data), GFP_KERNEL);
-	if (!pdata)
+	if (!pdata) {
+		dev_err(&pdev->dev, "%s: No mem for msm_asoc\n", __func__);
 		return -ENOMEM;
+	}
 
 	of_property_read_u32(pdev->dev.of_node,
 				"qcom,lito-is-v2-enabled",
@@ -8279,21 +8355,26 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	ret = msm_populate_dai_link_component_of_node(card);
 	if (ret) {
+		dev_err(&pdev->dev, "%s: dai_link failed \n", __func__);
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
 
 	ret = msm_init_aux_dev(pdev, card);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "%s: aux_dev failed\n", __func__);
 		goto err;
+	}
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret == -EPROBE_DEFER) {
+		dev_err(&pdev->dev, "%s: snd_soc_register_card failed_1 (%d)\n",
+			__func__, ret);
 		if (codec_reg_done)
 			ret = -EINVAL;
 		goto err;
 	} else if (ret) {
-		dev_err(&pdev->dev, "%s: snd_soc_register_card failed (%d)\n",
+		dev_err(&pdev->dev, "%s: snd_soc_register_card failed_2 (%d)\n",
 			__func__, ret);
 		goto err;
 	}

@@ -33,6 +33,10 @@ static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type);
 #define WDSP_STATUS_DATA_DLOADED  BIT(2)
 #define WDSP_STATUS_BOOTED        BIT(3)
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
+
 /* Helper macros for printing wdsp messages */
 #define WDSP_ERR(wdsp, fmt, ...)		\
 	dev_err(wdsp->mdev, "%s: " fmt "\n", __func__, ##__VA_ARGS__)

@@ -10,6 +10,9 @@
 static struct miscdevice audio_g711mlaw_misc;
 static struct ws_mgr audio_g711_ws_mgr;
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #ifdef CONFIG_DEBUG_FS
 static const struct file_operations audio_g711_debug_fops = {
 	.read = audio_aio_debug_read,

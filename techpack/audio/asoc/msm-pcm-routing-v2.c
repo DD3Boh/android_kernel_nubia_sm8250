@@ -25722,7 +25722,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"WSA_CDC_DMA_RX_1 Audio Mixer", "MultiMedia16", "MM_DL16"},
 	{"WSA_CDC_DMA_RX_1 Audio Mixer", "MultiMedia26", "MM_DL26"},
 	{"WSA_CDC_DMA_RX_1", NULL, "WSA_CDC_DMA_RX_1 Audio Mixer"},
-
+#if 0
 	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia2", "MM_DL2"},
 	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia3", "MM_DL3"},
@@ -25741,7 +25741,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia16", "MM_DL16"},
 	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia26", "MM_DL26"},
 	{"RX_CDC_DMA_RX_0", NULL, "RX_CDC_DMA_RX_0 Audio Mixer"},
-
+#endif
 	{"RX_CDC_DMA_RX_1 Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"RX_CDC_DMA_RX_1 Audio Mixer", "MultiMedia2", "MM_DL2"},
 	{"RX_CDC_DMA_RX_1 Audio Mixer", "MultiMedia3", "MM_DL3"},
@@ -29451,6 +29451,25 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia16", "MM_DL16"},
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia26", "MM_DL26"},
 	{"TERT_MI2S_RX", NULL, "TERT_MI2S_RX Audio Mixer"},
+
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia3", "MM_DL3"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia4", "MM_DL4"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia5", "MM_DL5"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia6", "MM_DL6"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia7", "MM_DL7"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia8", "MM_DL8"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia9", "MM_DL9"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia10", "MM_DL10"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia11", "MM_DL11"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia12", "MM_DL12"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia13", "MM_DL13"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia14", "MM_DL14"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia15", "MM_DL15"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia16", "MM_DL16"},
+	{"RX_CDC_DMA_RX_0 Audio Mixer", "MultiMedia26", "MM_DL26"},
+	{"RX_CDC_DMA_RX_0", NULL, "RX_CDC_DMA_RX_0 Audio Mixer"},
 
 	{"SEC_MI2S_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"SEC_MI2S_RX Audio Mixer", "MultiMedia2", "MM_DL2"},

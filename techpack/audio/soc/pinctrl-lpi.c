@@ -68,6 +68,9 @@
 static bool lpi_dev_up;
 static struct device *lpi_dev;
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 /* The index of each function in lpi_gpio_functions[] array */
 enum lpi_gpio_func_index {
 	LPI_GPIO_FUNC_INDEX_GPIO	= 0x00,

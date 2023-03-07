@@ -23,6 +23,9 @@
 
 #define DRV_NAME "ep92_codec"
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #define EP92_POLL_INTERVAL_OFF_MSEC 200
 #define EP92_POLL_INTERVAL_ON_MSEC  20
 #define EP92_POLL_RUNOUT_MSEC       5000

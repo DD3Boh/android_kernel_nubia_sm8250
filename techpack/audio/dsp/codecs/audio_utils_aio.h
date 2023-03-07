@@ -30,6 +30,9 @@
 #define AUDIO_DEC_EOF_SET  0x00000010
 #define AUDIO_EVENT_NUM		10
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #define __CONTAINS(r, v, l) ({                                  \
 	typeof(r) __r = r;                                      \
 	typeof(v) __v = v;                                      \

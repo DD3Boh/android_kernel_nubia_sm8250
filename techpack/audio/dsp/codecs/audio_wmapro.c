@@ -24,6 +24,9 @@
 static struct miscdevice audio_wmapro_misc;
 static struct ws_mgr audio_wmapro_ws_mgr;
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 #ifdef CONFIG_DEBUG_FS
 static const struct file_operations audio_wmapro_debug_fops = {
 	.read = audio_aio_debug_read,

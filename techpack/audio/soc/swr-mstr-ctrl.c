@@ -56,6 +56,10 @@
 #define SWRM_COL_02    02
 #define SWRM_COL_16    16
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
+
 #define SWR_OVERFLOW_RETRY_COUNT 30
 
 /* pm runtime auto suspend timer in msecs */
@@ -2072,6 +2076,10 @@ handle_irq:
 					 * as hw will mask host_irq at slave
 					 * but will not unmask it afterwards.
 					 */
+					//swrm_cmd_fifo_wr_cmd(swrm, 0xFF, devnum, 0x0,
+						//SWRS_SCP_INT_STATUS_CLEAR_1);
+					//swrm_cmd_fifo_wr_cmd(swrm, 0x4, devnum, 0x0,
+						//SWRS_SCP_INT_STATUS_MASK_1);
 					swrm->enable_slave_irq = true;
 				}
 				break;
@@ -2080,6 +2088,10 @@ handle_irq:
 					"%s: device %d got attached\n",
 					__func__, devnum);
 				/* enable host irq from slave device*/
+				//swrm_cmd_fifo_wr_cmd(swrm, 0xFF, devnum, 0x0,
+					//SWRS_SCP_INT_STATUS_CLEAR_1);
+				//swrm_cmd_fifo_wr_cmd(swrm, 0x4, devnum, 0x0,
+					//SWRS_SCP_INT_STATUS_MASK_1);
 				swrm->enable_slave_irq = true;
 				break;
 			case SWR_ALERT:
@@ -2165,9 +2177,9 @@ handle_irq:
 				dev_err_ratelimited(swrm->dev,
 					"%s: SWR wokeup during clock stop\n",
 					__func__);
-				/* It might be possible the slave device gets
-				 * reset and slave interrupt gets missed. So
-				 * re-enable Host IRQ and process slave pending
+				/* It might be possible the slave device gets reset
+				 * and slave interrupt gets missed. So re-enable
+				 * Host IRQ and process slave pending
 				 * interrupts, if any.
 				 */
 				swrm_enable_slave_irq(swrm);
@@ -2486,7 +2498,6 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 
 	reg[len] = SWR_MSTR_RX_SWRM_CPU_INTERRUPT_EN;
 	value[len++] = swrm->intr_mask;
-
 	reg[len] = SWRM_COMP_CFG_ADDR;
 	value[len++] = 0x03;
 
@@ -3139,6 +3150,9 @@ static int swrm_runtime_suspend(struct device *dev)
 		aud_core_err = true;
 	}
 
+	if (swrm_request_hw_vote(swrm, LPASS_AUDIO_CORE, true))
+		dev_err(dev, "%s:lpass audio hw enable failed\n", __func__);
+
 	if ((current_state == SWR_MSTR_UP) ||
 	    (current_state == SWR_MSTR_SSR)) {
 
@@ -3231,6 +3245,8 @@ static int swrm_runtime_suspend(struct device *dev)
 		}
 
 	}
+	if (swrm_request_hw_vote(swrm, LPASS_AUDIO_CORE, false))
+		dev_dbg(dev, "%s:lpass audio hw enable failed\n", __func__);
 	/* Retain  SSR state until resume */
 	if (current_state != SWR_MSTR_SSR)
 		swrm->state = SWR_MSTR_DOWN;

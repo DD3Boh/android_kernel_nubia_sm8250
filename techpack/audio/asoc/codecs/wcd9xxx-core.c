@@ -39,6 +39,9 @@
 #define WCD9XXX_I2C_DIGITAL_1	2
 #define WCD9XXX_I2C_DIGITAL_2	3
 
+#ifndef CONFIG_DEBUG_FS
+#define CONFIG_DEBUG_FS
+#endif
 /*
  * Number of return values needs to be checked for each
  * registration of Slimbus of I2C bus for each codec
