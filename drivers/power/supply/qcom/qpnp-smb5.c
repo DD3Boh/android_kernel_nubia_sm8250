@@ -23,7 +23,10 @@
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
-
+#include "../../../usb/pd/usbpd.h"
+#ifdef CONFIG_NUBIA_DOCK_FEATURE
+struct smb_charger *nubia_global_charger = NULL;
+#endif
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
 		.name   = "fast charge current",
@@ -454,6 +457,21 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_PL ||
 		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP_PL;
 
+#if defined(CONFIG_NUBIA_CHARGE_FEATURE)	
+	chg->jeita_warm_stop_chg_soc = 95;
+	pr_err("nubia charge:jeita_warm_stop_chg_soc:%d\n", chg->jeita_warm_stop_chg_soc);
+	
+	chg->lcd_on_limit_enable= of_property_read_bool(node,
+				"qcom,lcd-on-limit-enable");
+
+	if(chg->lcd_on_limit_enable){
+		rc = of_property_read_u32(node,
+				"qcom,lcd-on-limit-temp", &chg->lcd_on_limit_temp);
+		rc = of_property_read_u32(node,
+				"qcom,lcd-on-limit-fcc", &chg->lcd_on_limit_fcc);
+	}
+#endif
+
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
 
@@ -881,6 +899,10 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_APSD_TIMEOUT,
 	POWER_SUPPLY_PROP_CHARGER_STATUS,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
+	//[---]Add the interface for charging debug apk
+#ifdef CONFIG_USBPD_PHY_QCOM
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+#endif
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -987,6 +1009,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		val->intval = smblib_get_prop_connector_health(chg);
+		#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+		val->intval = POWER_SUPPLY_HEALTH_COOL;
+		#endif
 		break;
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblib_get_prop_scope(chg, val);
@@ -1049,6 +1074,12 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 				val->intval = (buff[1] << 8 | buff[0]) * 1038;
 		}
 		break;
+	//[---]Add the interface for charging debug apk
+#ifdef CONFIG_USBPD_PHY_QCOM
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		rc = smblib_get_prop_charging_enabled(chg, val);
+		break;
+#endif
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -1135,6 +1166,16 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 		smblib_set_prop_usb_voltage_max_limit(chg, val);
 		break;
+#ifdef CONFIG_USBPD_PHY_QCOM
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		pr_err("set_property POWER_SUPPLY_PROP_CURRENT_MAX\n");
+		rc = smblib_set_prop_usb_current_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		pr_err("set_property POWER_SUPPLY_PROP_CHARGING_ENABLED\n");
+		rc = smblib_set_prop_charging_enabled(chg, val);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		chg->adapter_cc_mode = val->intval;
 		break;
@@ -1317,6 +1358,9 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
 	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
 	POWER_SUPPLY_PROP_HEALTH,
+#ifdef CONFIG_USBPD_PHY_QCOM
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+#endif
 	POWER_SUPPLY_PROP_HOT_TEMP,
 };
 
@@ -1383,6 +1427,11 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_HEALTH:
 		rc = val->intval = smblib_get_prop_smb_health(chg);
 		break;
+#ifdef CONFIG_USBPD_PHY_QCOM
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		rc = smblib_get_prop_charging_enabled(chg, val);
+		break;
+#endif
 	/* Use this property to report overheat status */
 	case POWER_SUPPLY_PROP_HOT_TEMP:
 		val->intval = chg->thermal_overheat;
@@ -1488,6 +1537,11 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		rc = smb5_set_prop_comp_clamp_level(chg, val);
 		break;
+#ifdef CONFIG_USBPD_PHY_QCOM
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		rc = smblib_set_prop_charging_enabled(chg, val);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_HOT_TEMP:
 		rc = smblib_set_prop_thermal_overheat(chg, val->intval);
 		break;
@@ -1697,6 +1751,12 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	POWER_SUPPLY_PROP_LCD_ON,
+	POWER_SUPPLY_PROP_GAME_JEITA,
+	POWER_SUPPLY_PROP_LOCK_SCREEN,
+	POWER_SUPPLY_PROP_HDMI_CONNECT_ON,
+	#endif
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
@@ -1880,6 +1940,24 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		val->intval = chg->fcc_stepper_enable;
 		break;
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	case POWER_SUPPLY_PROP_LCD_ON:
+		val->intval = chg->lcd_on;		
+		pr_err("====>>get lcd on:%d<<====\n", chg->lcd_on);
+		break;
+	case POWER_SUPPLY_PROP_GAME_JEITA:
+		val->intval = chg->game_jeita;		
+		pr_err("====>>get game jeita:%d<<====\n", chg->game_jeita);
+		break;
+	case POWER_SUPPLY_PROP_LOCK_SCREEN:
+		val->intval = chg->lock_screen;		
+		pr_err("====>>get lock_screen:%d<<====\n", chg->lock_screen);
+		break;
+	case POWER_SUPPLY_PROP_HDMI_CONNECT_ON:
+		val->intval = chg->hdmi_connect_on;		
+		pr_err("====>>get hdmi_connect_on:%d<<====\n", chg->hdmi_connect_on);
+		break;
+	#endif
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1987,6 +2065,40 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		chg->fcc_stepper_enable = val->intval;
 		break;
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	case POWER_SUPPLY_PROP_LCD_ON:
+		if (val->intval == 0){
+			chg->lcd_on = 0;
+		}else{
+			chg->lcd_on = 1;
+		}
+		pr_err("====>>set lcd on:%d<<====\n", chg->lcd_on);
+		break;
+	case POWER_SUPPLY_PROP_GAME_JEITA:
+		if (val->intval == 0){
+			chg->game_jeita = 0;
+		}else{
+			chg->game_jeita = 1;
+		}
+		pr_err("====>>set game jeita:%d<<====\n", chg->game_jeita);
+		break;
+	case POWER_SUPPLY_PROP_LOCK_SCREEN:
+		if (val->intval == 0){
+			chg->lock_screen = 0;
+		}else{
+			chg->lock_screen = 1;
+		}
+		pr_err("====>>set lock_screen:%d<<====\n", chg->lock_screen);
+		break;
+	case POWER_SUPPLY_PROP_HDMI_CONNECT_ON:
+		if (val->intval == 0){
+			chg->hdmi_connect_on = 0;
+		}else{
+			chg->hdmi_connect_on = 1;
+		}
+		pr_err("====>>set hdmi_connect_on:%d<<====\n", chg->hdmi_connect_on);
+		break;
+	#endif
 	default:
 		rc = -EINVAL;
 	}
@@ -2002,6 +2114,12 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	case POWER_SUPPLY_PROP_LCD_ON:
+	case POWER_SUPPLY_PROP_GAME_JEITA:
+	case POWER_SUPPLY_PROP_LOCK_SCREEN:
+	case POWER_SUPPLY_PROP_HDMI_CONNECT_ON:
+	#endif
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 	case POWER_SUPPLY_PROP_DP_DM:
 	case POWER_SUPPLY_PROP_RERUN_AICL:
@@ -2018,7 +2136,11 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 
 static const struct power_supply_desc batt_psy_desc = {
 	.name = "battery",
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	.type = POWER_SUPPLY_TYPE_MAINS,
+	#else
 	.type = POWER_SUPPLY_TYPE_BATTERY,
+	#endif
 	.properties = smb5_batt_props,
 	.num_properties = ARRAY_SIZE(smb5_batt_props),
 	.get_property = smb5_batt_get_prop,
@@ -2784,7 +2906,11 @@ static int smb5_init_hw(struct smb5 *chip)
 	vote(chg->fv_votable,
 		BATT_PROFILE_VOTER, chg->batt_profile_fv_uv > 0,
 		chg->batt_profile_fv_uv);
-
+#ifdef CONFIG_USBPD_PHY_QCOM
+	/* enable switching charger */
+	vote(chg->chg_disable_votable, DIRECT_CHARGE_VOTER, false, 0);
+	pr_err("qpnp-smb5 smb5_init_hw DIRECT_CHARGE_VOTER false 0\n");
+#endif
 	/* Some h/w limit maximum supported ICL */
 	vote(chg->usb_icl_votable, HW_LIMIT_VOTER,
 			chg->hw_max_icl_ua > 0, chg->hw_max_icl_ua);
@@ -3564,6 +3690,12 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->connector_health = -EINVAL;
 	chg->otg_present = false;
 	chg->main_fcc_max = -EINVAL;
+	#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	chg->lcd_on = 1;
+	chg->game_jeita = 0;
+	chg->lock_screen = 1;
+	chg->hdmi_connect_on = 0;
+	#endif
 	mutex_init(&chg->adc_lock);
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
@@ -3739,7 +3871,9 @@ static int smb5_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(chg->dev, true);
-
+#ifdef CONFIG_NUBIA_DOCK_FEATURE
+	nubia_global_charger = chg;
+#endif
 	pr_info("QPNP SMB5 probed successfully\n");
 
 	return rc;
@@ -3766,7 +3900,9 @@ static int smb5_remove(struct platform_device *pdev)
 	smblib_deinit(chg);
 	sysfs_remove_groups(&chg->dev->kobj, smb5_groups);
 	platform_set_drvdata(pdev, NULL);
-
+#ifdef CONFIG_NUBIA_DOCK_FEATURE
+	nubia_global_charger = NULL;
+#endif
 	return 0;
 }
 

@@ -1,0 +1,6 @@
+config NUBIA_FP_GOODIX_GW9558
+	tristate "generic goodix GW9558 driver"
+	default y
+	help
+	add support for goodix GW9558 driver.
+

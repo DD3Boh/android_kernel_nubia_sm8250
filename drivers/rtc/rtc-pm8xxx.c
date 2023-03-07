@@ -483,6 +483,17 @@ static const struct of_device_id pm8xxx_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, pm8xxx_id_table);
 
+
+//Begin [ljz add the kernel power code,20200615]
+#ifdef CONFIG_ZTEMT_POWER_DEBUG
+static time_t rtc_suspend_sec = 0;
+static time_t rtc_resume_sec = 0;
+static unsigned long all_sleep_time = 0;
+static unsigned long all_wake_time = 0;
+#endif //CONFIG_ZTEMT_POWER_DEBUG
+//End [ljz add the kernel power code,20200615]
+
+
 static int pm8xxx_rtc_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -555,19 +566,65 @@ static int pm8xxx_rtc_resume(struct device *dev)
 {
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
 
+//Begin [ljz add the kernel power code,20200615]
+#ifdef CONFIG_ZTEMT_POWER_DEBUG
+	int rc, diff=0;
+	struct rtc_time tm;
+	unsigned long now;
+#endif //CONFIG_ZTEMT_POWER_DEBUG
+//End  [ljz add the kernel power code,20200615]
+       
+
 	if (device_may_wakeup(dev))
 		disable_irq_wake(rtc_dd->rtc_alarm_irq);
+	
+//Begin [ljz add the kernel power code,20200615]
+#ifdef CONFIG_ZTEMT_POWER_DEBUG
+	rc = pm8xxx_rtc_read_time(dev,&tm);
+	if (rc) {
+		printk("%s: Unable to read from RTC\n", __func__);
+	}
+	rtc_tm_to_time(&tm, &now);
+	rtc_resume_sec = now;
+	diff = rtc_resume_sec - rtc_suspend_sec;
+	all_sleep_time += diff;
+	printk("I have sleep %d seconds all_sleep_time %lu seconds\n",diff,all_sleep_time);
+#endif //CONFIG_ZTEMT_POWER_DEBUG
+//End   [ljz add the kernel power code,20200615]
 
+	
 	return 0;
 }
 
 static int pm8xxx_rtc_suspend(struct device *dev)
 {
+//Begin [ljz add the kernel power code,20200615]
+#ifdef CONFIG_ZTEMT_POWER_DEBUG
+	int rc, diff=0;
+	struct rtc_time tm;
+	unsigned long now;
+#endif
+//End [ljz add the kernel power code,20200615]
+	
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
 
 	if (device_may_wakeup(dev))
 		enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
+//Begin [ljz add the kernel power code,20200615]
+#ifdef CONFIG_ZTEMT_POWER_DEBUG
+	rc = pm8xxx_rtc_read_time(dev,&tm);
+	if(rc) {
+		printk("%s: Unable to read from RTC\n", __func__);
+	}
+	rtc_tm_to_time(&tm, &now);
+	rtc_suspend_sec = now;
+	diff = rtc_suspend_sec - rtc_resume_sec;
+	all_wake_time += diff;
+	printk("I have work %d seconds all_wake_time %lu seconds\n",diff,all_wake_time);
+#endif
+//End [ljz add the kernel power code,20200615]
+	
 	return 0;
 }
 #endif

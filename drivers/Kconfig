@@ -224,10 +224,14 @@ source "drivers/siox/Kconfig"
 source "drivers/slimbus/Kconfig"
 
 source "drivers/esoc/Kconfig"
-
+source "drivers/nubia/Kconfig"
 source "drivers/sensors/Kconfig"
 
 source "drivers/gpu/msm/Kconfig"
 
 source "drivers/energy_model/Kconfig"
+source "drivers/nubia_hw_version/Kconfig"
+
+source "drivers/fan/Kconfig"
+
 endmenu

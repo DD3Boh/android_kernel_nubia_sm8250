@@ -816,7 +816,10 @@ static int oom_reaper(void *unused)
 	return 0;
 }
 
-static void wake_oom_reaper(struct task_struct *tsk)
+//nubia add for lowmemorykiller
+//static void wake_oom_reaper(struct task_struct *tsk)
+void wake_oom_reaper(struct task_struct *tsk)
+//nubia add end
 {
 	/*
 	 * Move the lock here to avoid scenario of queuing

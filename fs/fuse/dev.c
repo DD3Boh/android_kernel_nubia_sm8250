@@ -580,6 +580,7 @@ ssize_t fuse_simple_request(struct fuse_conn *fc, struct fuse_args *args)
 		BUG_ON(args->out.numargs != 1);
 		ret = req->out.args[0].size;
 	}
+    args->passthrough_filp = req->passthrough_filp;
 	fuse_put_request(fc, req);
 
 	return ret;
@@ -1930,6 +1931,8 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 		req->out.h.error = kern_path(path, 0, req->canonical_path);
 	}
 	fuse_copy_finish(cs);
+
+    fuse_setup_passthrough(fc, req);
 
 	spin_lock(&fpq->lock);
 	clear_bit(FR_LOCKED, &req->flags);

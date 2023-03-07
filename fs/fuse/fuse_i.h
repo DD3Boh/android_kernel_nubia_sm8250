@@ -148,6 +148,12 @@ struct fuse_file {
 	/** Entry on inode's write_files list */
 	struct list_head write_entry;
 
+	/**
+     * Reference to lower filesystem file for read/write operations
+     * handled in pass-through mode
+	 */
+    struct file *passthrough_filp;
+
 	/** RB node to be linked on fuse_conn->polled_files */
 	struct rb_node polled_node;
 
@@ -236,6 +242,7 @@ struct fuse_args {
 		unsigned numargs;
 		struct fuse_arg args[2];
 	} out;
+	struct file *passthrough_filp;
 };
 
 #define FUSE_ARGS(args) struct fuse_args args = {}
@@ -322,6 +329,9 @@ struct fuse_req {
 
 	/** The request output */
 	struct fuse_out out;
+
+    /** Lower filesystem file pointer used in pass-through mode */
+    struct file *passthrough_filp;
 
 	/** Used to wake up the task waiting for completion of request*/
 	wait_queue_head_t waitq;
@@ -642,6 +652,9 @@ struct fuse_conn {
 
 	/** Allow other than the mounter user to access the filesystem ? */
 	unsigned allow_other:1;
+
+	/** Pass-through mode for read/write IO */
+	unsigned int passthrough:1;
 
 	/** The number of requests waiting for completion */
 	atomic_t num_waiting;
@@ -999,5 +1012,10 @@ extern const struct xattr_handler *fuse_no_acl_xattr_handlers[];
 struct posix_acl;
 struct posix_acl *fuse_get_acl(struct inode *inode, int type);
 int fuse_set_acl(struct inode *inode, struct posix_acl *acl, int type);
+
+void fuse_setup_passthrough(struct fuse_conn *fc, struct fuse_req *req);
+ssize_t fuse_passthrough_read_iter(struct kiocb *iocb, struct iov_iter *to);
+ssize_t fuse_passthrough_write_iter(struct kiocb *iocb, struct iov_iter *from);
+void fuse_passthrough_release(struct fuse_file *ff);
 
 #endif /* _FS_FUSE_I_H */

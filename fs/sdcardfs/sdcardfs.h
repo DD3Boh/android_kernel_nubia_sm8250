@@ -89,6 +89,15 @@
 		(x)->i_mode = ((x)->i_mode & S_IFMT) | 0775;\
 	} while (0)
 
+//Nubia FileObserver Begin
+#ifdef ENABLE_FILE_OBSERVER
+struct sdcardfs_file_creator {
+    uid_t uid;
+    pid_t pid;
+};
+#endif
+//Nubia FileObserver End
+
 /* Android 5.0 support */
 
 /* Permission mode for a specific node. Controls how file permissions
@@ -115,6 +124,9 @@ typedef enum {
 	PERM_ANDROID_PACKAGE,
 	/* This node is "/Android/[data|media|obb]/[package]/cache" */
 	PERM_ANDROID_PACKAGE_CACHE,
+	//nubia add for nubia-pass-through-dir
+	PERM_NUBIA,
+	//nubia add
 } perm_t;
 
 struct sdcardfs_sb_info;
@@ -158,6 +170,13 @@ extern int sdcardfs_on_fscrypt_key_removed(struct notifier_block *nb,
 struct sdcardfs_file_info {
 	struct file *lower_file;
 	const struct vm_operations_struct *lower_vm_ops;
+
+//Nubia FileObserver Begin
+    #ifdef ENABLE_FILE_OBSERVER
+    struct sdcardfs_file_creator creator;
+    __u32 mask;
+    #endif
+//Nubia FileObserver End
 };
 
 struct sdcardfs_inode_data {
@@ -170,6 +189,9 @@ struct sdcardfs_inode_data {
 	bool under_android;
 	bool under_cache;
 	bool under_obb;
+	//nubia add for nubia-pass-through-dir
+	bool under_nubia_pass_through;
+	//nubia add end
 };
 
 /* sdcardfs inode data in memory */
@@ -448,7 +470,11 @@ static inline int get_mode(struct vfsmount *mnt,
 			visible_mode = visible_mode & ~0006;
 		else
 			visible_mode = visible_mode & ~0007;
+	} //nubia add for nubia-pass-through-dir
+	else if (data->under_nubia_pass_through) {
+	        visible_mode = visible_mode | 0007;
 	}
+	//nubia add end
 	owner_mode = info->lower_inode->i_mode & 0700;
 	filtered_mode = visible_mode & (owner_mode | (owner_mode >> 3) | (owner_mode >> 6));
 	return filtered_mode;

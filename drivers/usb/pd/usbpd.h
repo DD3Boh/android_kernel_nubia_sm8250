@@ -10,6 +10,8 @@
 
 struct usbpd;
 
+#define CONFIG_NUBIA_DOCK_FEATURE
+
 #if IS_ENABLED(CONFIG_USB_PD_POLICY)
 struct usbpd *usbpd_create(struct device *parent);
 void usbpd_destroy(struct usbpd *pd);

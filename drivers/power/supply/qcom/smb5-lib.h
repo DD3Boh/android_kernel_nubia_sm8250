@@ -81,6 +81,16 @@ enum print_reason {
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define OVERHEAT_LIMIT_VOTER		"OVERHEAT_LIMIT_VOTER"
 #define TYPEC_SWAP_VOTER		"TYPEC_SWAP_VOTER"
+#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+#define USER_ADAPTER_CHG			"USER_ADAPTER_CHG"
+#define USER_JEITA_FV_CHG			"USER_JEITA_FV_CHG"
+#define USER_LCD_CHG			"USER_LCD_CHG"
+#endif
+#ifdef CONFIG_USBPD_PHY_QCOM
+#define SWCHG_ICL_NORMAL		3000000
+#define DIRECT_CHARGE_VOTER		"DIRECT_CHARGE_VOTER"
+#define PD_DIRECT_CHARGE_VOTER		"PD_DIRECT_CHARGE_VOTER"
+#endif
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -470,6 +480,9 @@ struct smb_charger {
 	struct delayed_work	pr_swap_detach_work;
 	struct delayed_work	pr_lock_clear_work;
 	struct delayed_work	role_reversal_check;
+#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	struct delayed_work	step_charge_check_work;
+#endif
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
@@ -575,6 +588,18 @@ struct smb_charger {
 	int			init_thermal_ua;
 	u32			comp_clamp_level;
 	int			wls_icl_ua;
+#if defined(CONFIG_NUBIA_CHARGE_FEATURE)
+	int			jeita_warm_stop_chg_soc;
+	bool		lcd_on_limit_enable;
+	int			lcd_on_limit_temp;
+	int			lcd_on_limit_fcc;
+	int			lcd_on;
+	int 		game_jeita;
+	int			lock_screen;
+	int			hdmi_connect_on;
+	struct notifier_block 	fb_notifier;
+#endif
+
 	int			cutoff_count;
 	bool			dcin_aicl_done;
 	bool			hvdcp3_standalone_config;
@@ -833,6 +858,14 @@ void smblib_hvdcp_hw_inov_enable(struct smb_charger *chg, bool enable);
 void smblib_hvdcp_exit_config(struct smb_charger *chg);
 void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
+#ifdef CONFIG_USBPD_PHY_QCOM
+int smblib_set_prop_usb_current_max(struct smb_charger *chg,
+				    const union power_supply_propval *val);
+int smblib_get_prop_charging_enabled(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_charging_enabled(struct smb_charger *chg,
+				const union power_supply_propval *val);
+#endif
 int smblib_get_irq_status(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_qc3_main_icl_offset(struct smb_charger *chg, int *offset_ua);
