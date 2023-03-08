@@ -1076,12 +1076,24 @@ static inline void __mmput(struct mm_struct *mm)
 /*
  * Decrement the use count and release all resources for an mm.
  */
-void mmput(struct mm_struct *mm)
+//nubia add for lowmemorykiller
+//void mmput(struct mm_struct *mm)
+int mmput(struct mm_struct *mm)
 {
+    //nubia add for lowmemorykiller
+    int mm_freed = 0;
+    //nubia add end
 	might_sleep();
 
-	if (atomic_dec_and_test(&mm->mm_users))
-		__mmput(mm);
+    //nubia add for lowmemorykiller
+    //if (atomic_dec_and_test(&mm->mm_users))
+    //    __mmput(mm);
+    if (atomic_dec_and_test(&mm->mm_users)) {
+        __mmput(mm);
+        mm_freed = 1;
+    }
+    return mm_freed;
+    //nubia add end
 }
 EXPORT_SYMBOL_GPL(mmput);
 
