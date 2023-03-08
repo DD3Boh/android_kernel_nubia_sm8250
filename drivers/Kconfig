@@ -235,4 +235,6 @@ source "drivers/fan/Kconfig"
 
 source "drivers/nubia_hw_version/Kconfig"
 
+source "drivers/nubia/Kconfig"
+
 endmenu
