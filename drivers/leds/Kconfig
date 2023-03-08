@@ -808,4 +808,6 @@ config LEDS_QPNP_VIBRATOR_LDO
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
+source "drivers/leds/nubia_led/Kconfig"
+
 endif # NEW_LEDS

@@ -92,3 +92,5 @@ obj-$(CONFIG_LEDS_USER)			+= uleds.o
 
 # LED Triggers
 obj-$(CONFIG_LEDS_TRIGGERS)		+= trigger/
+
+obj-$(CONFIG_NUBIA_LED)			+= nubia_led/
