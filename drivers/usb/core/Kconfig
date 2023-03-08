@@ -90,3 +90,8 @@ config USB_LEDS_TRIGGER_USBPORT
 	  This driver allows LEDs to be controlled by USB events. Enabling this
 	  trigger allows specifying list of USB ports that should turn on LED
 	  when some USB device gets connected.
+config NUBIA_USB_DISABLE_LINK_PM
+       bool "nubia disable link pm"
+       default n
+       help
+       some usb3.0 otg disk work abnormally when enable link pm
