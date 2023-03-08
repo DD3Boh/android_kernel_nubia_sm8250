@@ -499,6 +499,7 @@ static int fuse_create_open(struct inode *dir, struct dentry *entry,
 	args.out.args[0].value = &outentry;
 	args.out.args[1].size = sizeof(outopen);
 	args.out.args[1].value = &outopen;
+    args.passthrough_filp = NULL;
 	err = fuse_simple_request(fc, &args);
 	if (err)
 		goto out_free_ff;
@@ -511,6 +512,7 @@ static int fuse_create_open(struct inode *dir, struct dentry *entry,
 	ff->fh = outopen.fh;
 	ff->nodeid = outentry.nodeid;
 	ff->open_flags = outopen.open_flags;
+    ff->passthrough_filp = args.passthrough_filp;
 	inode = fuse_iget(dir->i_sb, outentry.nodeid, outentry.generation,
 			  &outentry.attr, entry_attr_timeout(&outentry), 0);
 	if (!inode) {
@@ -1000,6 +1002,7 @@ static int fuse_update_get_attr(struct inode *inode, struct file *file,
 		sync = false;
 	else
 		sync = time_before64(fi->i_time, get_jiffies_64());
+
 
 	if (sync) {
 		forget_all_cached_acls(inode);

@@ -927,6 +927,12 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 			}
 			if (arg->flags & FUSE_ABORT_ERROR)
 				fc->abort_err = 1;
+            if (arg->flags & FUSE_PASSTHROUGH) {
+                fc->passthrough = 1;
+                /* Prevent further stacking */
+                fc->sb->s_stack_depth =
+                    FILESYSTEM_MAX_STACK_DEPTH;
+            }
 		} else {
 			ra_pages = fc->max_read / PAGE_SIZE;
 			fc->no_lock = 1;
@@ -957,7 +963,7 @@ static void fuse_send_init(struct fuse_conn *fc, struct fuse_req *req)
 		FUSE_FLOCK_LOCKS | FUSE_HAS_IOCTL_DIR | FUSE_AUTO_INVAL_DATA |
 		FUSE_DO_READDIRPLUS | FUSE_READDIRPLUS_AUTO | FUSE_ASYNC_DIO |
 		FUSE_WRITEBACK_CACHE | FUSE_NO_OPEN_SUPPORT |
-		FUSE_PARALLEL_DIROPS | FUSE_HANDLE_KILLPRIV | FUSE_POSIX_ACL |
+		FUSE_PARALLEL_DIROPS | FUSE_HANDLE_KILLPRIV | FUSE_POSIX_ACL | FUSE_PASSTHROUGH |
 		FUSE_ABORT_ERROR;
 	req->in.h.opcode = FUSE_INIT;
 	req->in.numargs = 1;
