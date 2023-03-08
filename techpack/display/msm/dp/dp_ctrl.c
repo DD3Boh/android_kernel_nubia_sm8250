@@ -10,7 +10,7 @@
 
 #include "dp_ctrl.h"
 #include "dp_debug.h"
-
+#include "nubia_dp_preference.h"
 #define DP_MST_DEBUG(fmt, ...) DP_DEBUG(fmt, ##__VA_ARGS__)
 
 #define DP_CTRL_INTR_READY_FOR_VIDEO     BIT(0)
@@ -41,6 +41,9 @@
 #define MR_LINK_TRAINING4  0x40
 
 #define DP_MAX_LANES 4
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+extern struct _select_sde_edid_info select_sde_edid_info;
+#endif
 
 struct dp_mst_ch_slot_info {
 	u32 start_slot;
@@ -1347,7 +1350,10 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 	wmb();
 
 	dp_ctrl_disable_link_clock(ctrl);
-
+	#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	select_sde_edid_info.hdmi_connected = false;
+	DP_DEBUG("select_sde_edid_info.hdmi_connected = %d\n", select_sde_edid_info.hdmi_connected);
+    #endif
 	ctrl->mst_mode = false;
 	ctrl->fec_mode = false;
 	ctrl->dsc_mode = false;

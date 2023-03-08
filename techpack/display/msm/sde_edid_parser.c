@@ -5,12 +5,42 @@
 
 #include <drm/drm_edid.h>
 #include <linux/hdmi.h>
-
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+#include <linux/msm_drm_notify.h>
+#endif
 #include "sde_kms.h"
 #include "sde_edid_parser.h"
+#include "nubia_dp_preference.h"
 
 #define DBC_START_OFFSET 4
 #define EDID_DTD_LEN 18
+
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+
+#define H_MIN	1920
+#define V_MIN	1080
+
+enum{
+	FPS_30 = 30,
+	FPS_45 = 45,
+	FPS_60 = 60,
+	FPS_75 = 75,
+	FPS_90 = 90,
+	FPS_100 = 100,
+	FPS_120 = 120,
+	FPS_144 = 144,
+	FPS_150 = 150,
+	FPS_240 = 240,
+};
+
+char monitor_white_list[][20]={
+	{"AVT GC553"},
+	{"AVT GC573"},
+};
+struct _select_sde_edid_info select_sde_edid_info = {0};
+char edid_mode_best_info[32] = {0};
+#endif
+
 
 enum data_block_types {
 	RESERVED,
@@ -235,7 +265,7 @@ u32 video_format)
 		/* Restore the format flags */
 		mode->flags = mode_fmt_flags;
 		if ((cea_mode != 0) && (cea_mode == video_format)) {
-			SDE_EDID_DEBUG("%s found match for %d ", __func__,
+			printk("%s found match for %d ", __func__,
 			video_format);
 			mode->flags |= DRM_MODE_FLAG_SUPPORTS_YUV;
 		}
@@ -325,12 +355,161 @@ const u8 *db)
 	SDE_EDID_DEBUG("%s -", __func__);
 }
 
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+
+static int dp_check_buffer_overflow(int rc, int *max_size, int *len)
+{
+	if (rc >= *max_size) {
+		DP_ERR("buffer overflow\n");
+		return -EINVAL;
+	}
+	*len += rc;
+	*max_size = SZ_4K - *len;
+
+	return 0;
+}
+
+void sde_edid_get_v_h(char *resulation, unsigned int *h, unsigned int *v)
+{
+	char *p;
+	int i = 0;
+	char v_buf[5] = {0};
+	char h_buf[5] = {0};
+	int lenght = sizeof(resulation);
+	p = resulation;
+	for(i=0; i<lenght; i++, p++){
+		if(*p != 'x'){
+			continue;
+		}
+		else
+			break;
+	}
+
+	strncpy(h_buf, resulation, p - resulation);
+	strncpy(v_buf, p + 1, lenght - i);
+	*h = (int)simple_strtol(h_buf, NULL, 10);
+	*v = (int)simple_strtol(v_buf, NULL, 10);
+	//printk("h = %d, v = %d, i = %d, p - resulation = %d, lenght = %d\n", *h, *v, i, p - resulation, lenght);
+	//printk(" %s, %s, resulation \n", h_buf, v_buf, resulation);
+}
+
+static inline void sde_edid_store_best_format(
+int vrefresh, int hdispay, int vdispay, int ratio)
+{
+	select_sde_edid_info.fps    = vrefresh;
+	select_sde_edid_info.h      = hdispay;
+	select_sde_edid_info.v      = vdispay;
+	select_sde_edid_info.ratio  = ratio;
+}
+
+static void sde_edid_get_best_format(
+struct drm_display_mode *mode, struct drm_connector *connector, int count)
+{
+	int h = 0, v = 0, v0 = 0;
+	int fps = 0;
+	int ratio = 0;
+	int len1 = 0, len2 = 0;
+	bool is_big_1080p = false;
+	uint8_t *eld = connector->eld;
+	printk("monitor name = %s \n", &eld[DRM_ELD_MONITOR_NAME_STRING]);
+	list_for_each_entry(mode, &connector->modes, head) {
+		sde_edid_get_v_h(mode->name, &h, &v);
+		/*
+		* store frist resulation,
+		* if there is no 16:9 && fps > 60 && v > 1080 && h > 1920, 
+		* we use the frist data edid info
+		*/
+		if(!v0){ 
+			v0 = v;
+			/*if there is no data > 1080p, we must to use the frist edid info*/
+			sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+		}
+		/*select 16:9 && fps > 60 && v > 1080 && h > 1920*/
+		ratio = h * 9 / 16;
+		if(mode->vrefresh >= FPS_60 && (ratio == v) && (v >= V_MIN && h >= H_MIN)){
+			if(mode->vrefresh > fps){ //select max fps
+				fps = mode->vrefresh;
+				sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+			}else if(mode->vrefresh == fps){ //if fps is equal, select max resulation
+				if(v > select_sde_edid_info.v && h > select_sde_edid_info.h){
+					fps = mode->vrefresh;
+					sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+				}
+			}
+			/**
+			***	for data card GC573
+			*** if have: v==1080 && h==1920 && fps==240, we select it
+			*** else if have: v==1080 && h==1920 && fps==120, we select it
+			*** else select another max v & h &fps
+			***/
+			len1 = strlen(monitor_white_list[1]);
+			if(!strncmp(&eld[DRM_ELD_MONITOR_NAME_STRING], monitor_white_list[1], len1)){
+				if(mode->vrefresh == FPS_240 && v == V_MIN && h == H_MIN){
+					sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+					break;
+				}else if(mode->vrefresh == FPS_120 && v == V_MIN && h == H_MIN){
+					sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+					break;
+				}
+			}else
+			/**
+			***	for data card GC553
+			*** if have: v>1080 && h>1920
+					if have: v==1080 && h==1920 && fps==120 we select it
+			*** else
+					if have: v==1080 && h==1920 && fps==144, we select it
+			*** else select another max v & h &fps
+			***/
+			len2 = strlen(monitor_white_list[0]);
+			if(!strncmp(&eld[DRM_ELD_MONITOR_NAME_STRING], monitor_white_list[0], len2)){
+				/*only select one time*/
+				if(v > V_MIN && h > H_MIN)
+					is_big_1080p = true;
+
+				if(is_big_1080p){
+					if(mode->vrefresh == FPS_120 && v == V_MIN && h == H_MIN){
+						sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+						break;
+					}
+				}else{
+					if(mode->vrefresh == FPS_144){
+						sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+						break;
+					}
+				}
+			}else if(mode->vrefresh == FPS_144 && v == V_MIN && h == H_MIN){
+				fps = mode->vrefresh;
+				sde_edid_store_best_format(mode->vrefresh, h, v, mode->picture_aspect_ratio);
+				break;
+			}
+		}
+	}
+
+	/*store the best fps and resulation to the frist space in buffer of edid_mode_info*/
+	snprintf(edid_mode_best_info, 32,
+			"%dx%d %d %d\n",select_sde_edid_info.h, select_sde_edid_info.v,
+			select_sde_edid_info.fps, select_sde_edid_info.ratio);
+
+	select_sde_edid_info.hdmi_connected = true;
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+	dsi_panel_notifier(MSM_HDMI_CONNECT_EVENT,MSM_HDMI_CONNECT_ON);
+	SDE_EDID_DEBUG("====>>>>hdmi_connect_on = 1 sde_edid_get_best_format<<<<====\n");
+#endif
+	printk("set monitor edid info : %d x %d %d %d",
+			select_sde_edid_info.h, select_sde_edid_info.v,
+			select_sde_edid_info.fps, select_sde_edid_info.ratio);
+}
+#endif
+
 static void sde_edid_set_mode_format(
 struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 {
 	const u8 *db = NULL;
 	struct drm_display_mode *mode;
-
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	int count = 0;
+    u32 len = 0, ret = 0, max_size = SZ_4K;
+#endif
 	SDE_EDID_DEBUG("%s +\n", __func__);
 	/* Set YUV mode support flags for YCbcr420VDB */
 	db = sde_edid_find_extended_tag_block(edid_ctrl->edid,
@@ -345,7 +524,28 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 		if (!(mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV))
 			mode->flags |= DRM_MODE_FLAG_SUPPORTS_RGB;
 	}
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	list_for_each_entry(mode, &connector->modes, head) {
+		count++;
+		printk("hdmi_edid_info[%d]: %s %d %d %d %d %d 0x%x\n",count,
+		mode->name, mode->vrefresh, mode->picture_aspect_ratio,
+		mode->htotal, mode->vtotal, mode->clock, mode->flags);
+		/*store the edid info to the buffer for userspace use*/
+		if(!select_sde_edid_info.edid_mode_store)
+		{
+			ret = snprintf(select_sde_edid_info.edid_mode_info + len, max_size,
+				"%s %d %d\n", mode->name, mode->vrefresh, mode->picture_aspect_ratio);
+			if (dp_check_buffer_overflow(ret, &max_size, &len))
+				SDE_EDID_DEBUG("%s: buffer overflow, %d ", __func__, __LINE__);
+		}
+	}
 
+	if(!select_sde_edid_info.edid_mode_store)
+	{
+		if(count>0)
+			sde_edid_get_best_format(mode, connector, count);
+	}
+#endif
 
 	db = sde_edid_find_extended_tag_block(edid_ctrl->edid,
 			Y420_CAPABILITY_MAP_DATA_BLOCK);
@@ -516,6 +716,14 @@ struct sde_edid_ctrl *sde_edid_init(void)
 	}
 	memset((edid_ctrl), 0, sizeof(*edid_ctrl));
 	SDE_EDID_DEBUG("%s -\n", __func__);
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	select_sde_edid_info.edid_mode_info = kzalloc(SZ_4K, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(select_sde_edid_info.edid_mode_info)) {
+		select_sde_edid_info.edid_mode_info = NULL;
+		SDE_ERROR("select_sde_edid_info.edid_mode_info alloc failed\n");
+	}
+	select_sde_edid_info.edid_mode_store = false;
+#endif
 	return edid_ctrl;
 }
 
@@ -587,9 +795,20 @@ u8 sde_get_edid_checksum(void *input)
 
 bool sde_detect_hdmi_monitor(void *input)
 {
+	
 	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
-
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	bool ret = false;
+	ret = drm_detect_hdmi_monitor(edid_ctrl->edid);
+	select_sde_edid_info.hdmi_connected = true;
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+	dsi_panel_notifier(MSM_HDMI_CONNECT_EVENT,MSM_HDMI_CONNECT_ON);
+	SDE_EDID_DEBUG("====>>>>hdmi_connect_on = 1 sde_detect_hdmi_monitor<<<<====\n");
+#endif
+	return ret;
+#else
 	return drm_detect_hdmi_monitor(edid_ctrl->edid);
+#endif
 }
 
 void sde_parse_edid(void *input)

@@ -2972,6 +2972,25 @@ void dsi_ctrl_set_continuous_clk(struct dsi_ctrl *dsi_ctrl, bool enable)
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
+
+bool dsi_ctrl_interrupt_enabled(struct dsi_ctrl *dsi_ctrl, uint32_t intr_idx)
+{
+	unsigned long flags;
+	bool ret = false;
+
+	if (!dsi_ctrl || dsi_ctrl->irq_info.irq_num == -1 ||
+				intr_idx >= DSI_STATUS_INTERRUPT_COUNT)
+		return false;
+
+	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
+	ret = (dsi_ctrl->irq_info.irq_stat_refcount[intr_idx] > 0) ?
+				true : false;
+	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
+	SDE_EVT32(dsi_ctrl->cell_index, ret);
+	return ret;
+}
+
+
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
 {
 	if (!dsi_ctrl)
@@ -2980,6 +2999,14 @@ int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 	dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	if (dsi_ctrl_interrupt_enabled(dsi_ctrl, DSI_SINT_CMD_MODE_DMA_DONE)) {
+		atomic_set(&dsi_ctrl->dma_irq_trig, 1);
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_MODE_DMA_DONE);
+		complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
+		DSI_CTRL_DEBUG(dsi_ctrl, "force disable DMA Done interrupt\n");
+	}
 
 	DSI_CTRL_DEBUG(dsi_ctrl, "Soft reset complete\n");
 	return 0;

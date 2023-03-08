@@ -35,6 +35,10 @@
  */
 #define MIPI_DSI_MSG_ASYNC_OVERRIDE BIT(4)
 
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+#define DEMURA_CHECK_NUM 7
+#endif
+
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
 	DSI_PANEL_ROTATE_HV_FLIP,
@@ -115,8 +119,11 @@ struct dsi_backlight_config {
 	u32 bl_scale;
 	u32 bl_scale_sv;
 	bool bl_inverted_dbv;
-
+#ifdef CONFIG_NUBIA_BACKLIGHT_CURVE
+	uint32_t backlight_curve[256];
+#endif
 	int en_gpio;
+	int lhbm_gpio;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -162,6 +169,9 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+	u32 demura_checksum; /* stautus demura esd checksum */
+#endif
 };
 
 struct dsi_panel {
@@ -337,4 +347,21 @@ void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
 void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 		struct dsi_display_mode *mode, u32 frame_threshold_us);
 
+#ifdef CONFIG_NUBIA_DISP_PREFERENCE
+int nubia_dsi_panel_cabc(struct dsi_panel *panel, uint32_t cabc_modes);
+void nubia_read_panel_type(struct dsi_panel *panel);
+
+#endif
+#ifdef CONFIG_NUBIA_AOD_HBM_MODE
+int nubia_dsi_panel_aod(struct dsi_panel *panel, uint32_t aod_modes);
+int nubia_dsi_panel_hbm(struct dsi_panel *panel, uint32_t hbm_modes);
+#endif
+#ifdef CONFIG_NUBIA_DEBUG_LCD_REG
+int dsi_panel_read_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len);
+int dsi_panel_write_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len);
+#endif
+#ifdef CONFIG_NUBIA_DFPS_SWITCH
+int nubia_dsi_panel_dfps(struct dsi_panel *panel, uint32_t dfps);
+void nubia_write_panel_osc_timing(uint32_t dfps, struct mipi_dsi_device *dsi);
+#endif
 #endif /* _DSI_PANEL_H_ */

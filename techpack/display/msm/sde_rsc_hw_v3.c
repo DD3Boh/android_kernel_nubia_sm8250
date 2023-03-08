@@ -279,7 +279,7 @@ static int sde_rsc_mode2_entry_trigger(struct sde_rsc_priv *rsc)
 			rc = 0;
 			break;
 		}
-		usleep_range(50, 100);
+		usleep_range(100, 200);
 	}
 
 	return rc;
@@ -349,7 +349,7 @@ static int sde_rsc_mode2_entry_v3(struct sde_rsc_priv *rsc)
 	 * longer time required subsequent to panel mode change
 	 */
 	if (rsc->post_poms)
-		usleep_range(750, 1000);
+		usleep_range(1000, 2000);
 	for (i = 0; i <= MAX_MODE2_ENTRY_TRY; i++) {
 		rc = sde_rsc_mode2_entry_trigger(rsc);
 		if (!rc)

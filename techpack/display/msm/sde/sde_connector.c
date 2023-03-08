@@ -66,6 +66,53 @@ static const struct drm_prop_enum_list e_frame_trigger_mode[] = {
 	{FRAME_DONE_WAIT_POSTED_START, "posted_start"},
 };
 
+#ifdef CONFIG_NUBIA_BACKLIGHT_CURVE
+int nubia_backlight_covert(struct dsi_display *display,
+					int value)
+{
+	u32 bl_lvl;
+	//X->Y: 448->49, 480->57, 784->150
+	u32 x_up = 480; //mapping end
+	u32 x_low = 368; //mapping start
+	u32 x_min = 336; //min level
+	u32 y_up = 57;
+	u32 y_low = 49; //4nit
+	u32 bl_lvl_dark;
+
+	if(!display)
+		return -EINVAL;
+
+	pr_debug("before nubia backlight, value = %d\n",value);
+	if(display->panel->bl_config.backlight_curve[0] == 0 && value<256 && value>=0 \
+	    && display->panel->bl_config.brightness_max_level < 256){
+		bl_lvl = display->panel->bl_config.backlight_curve[value];
+		} else {
+			if (value > 0) {
+				bl_lvl =value * (display->panel->bl_config.bl_max_level -display->panel->bl_config.bl_min_level);
+				do_div(bl_lvl,display->panel->bl_config.brightness_max_level);
+				bl_lvl =value *bl_lvl;
+				do_div(bl_lvl,display->panel->bl_config.brightness_max_level);
+				bl_lvl += display->panel->bl_config.bl_min_level;
+				if (value < x_up && value >= x_low) {
+					//((y_up - y_low)/(x_up - x_low) )*(x - x_low) + y_low
+					bl_lvl_dark = (y_up - y_low) * (value - x_low);
+					do_div(bl_lvl_dark, (x_up - x_low));
+					bl_lvl_dark += y_low;
+					bl_lvl = bl_lvl_dark;
+				} else if (value >= x_min && value < x_low) {
+					bl_lvl = y_low;
+				}
+			} else {
+				bl_lvl =0;
+			}
+		}
+
+	pr_debug("after nubia backlight, bl_lvl = %d\n",bl_lvl);
+
+	return bl_lvl;
+}
+#endif
+
 static int sde_backlight_device_update_status(struct backlight_device *bd)
 {
 	int brightness;
@@ -87,9 +134,13 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (brightness > display->panel->bl_config.bl_max_level)
 		brightness = display->panel->bl_config.bl_max_level;
 
+#ifdef CONFIG_NUBIA_BACKLIGHT_CURVE
+	bl_lvl = nubia_backlight_covert(display,brightness);
+#else
 	/* map UI brightness into driver backlight level with rounding */
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
 			display->panel->bl_config.brightness_max_level);
+#endif
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
@@ -543,7 +594,9 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	}
 
 	SDE_EVT32(connector->base.id, c_conn->dpms_mode, c_conn->lp_mode, mode);
-	SDE_DEBUG("conn %d - dpms %d, lp %d, panel %d\n", connector->base.id,
+	//SDE_DEBUG("conn %d - dpms %d, lp %d, panel %d\n", connector->base.id,
+	//		c_conn->dpms_mode, c_conn->lp_mode, mode);
+	pr_info("conn %d - dpms %d, lp %d, panel %d\n", connector->base.id,
 			c_conn->dpms_mode, c_conn->lp_mode, mode);
 
 	if (mode != c_conn->last_panel_power_mode && c_conn->ops.set_power) {
@@ -2243,6 +2296,14 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	mutex_lock(&conn->lock);
 	dev = conn->base.dev->dev;
 
+	//nubia for avoid esd check in aod mode
+	if (conn->lp_mode != SDE_MODE_DPMS_ON) {
+		pr_err("[%s] lp_mode=%d, dpms_mode=%d, esd_en=%d\n", __func__, conn->lp_mode, conn->dpms_mode, conn->esd_status_check);
+		conn->esd_status_check = false;
+		mutex_unlock(&conn->lock);
+		return;
+	}
+	//nubia for aod end
 	if (!conn->ops.check_status || dev->power.is_suspended ||
 			(conn->dpms_mode != DRM_MODE_DPMS_ON)) {
 		SDE_DEBUG("dpms mode: %d\n", conn->dpms_mode);
