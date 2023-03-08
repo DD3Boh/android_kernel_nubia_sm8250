@@ -11,6 +11,31 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+/*ZTEMT: fengxun add for flash debug--------Start*/
+int cam_flash_switch(struct cam_flash_ctrl *flash_ctrl, int enable)
+{
+
+	if(1 == enable){
+		CAM_ERR(CAM_FLASH, "torch_switch ON \n");
+		led_trigger_event(flash_ctrl->flash_trigger[0],0);
+		led_trigger_event(flash_ctrl->torch_trigger[0],120);
+		usleep_range(100000, 110000);
+		led_trigger_event(flash_ctrl->switch_trigger,1);
+	}else if(0 == enable){
+		CAM_ERR(CAM_FLASH, "torch_switch OFF \n");
+		led_trigger_event(flash_ctrl->flash_trigger[0],0);
+		led_trigger_event(flash_ctrl->torch_trigger[0],0);
+		usleep_range(100000, 110000);
+		led_trigger_event(flash_ctrl->switch_trigger,0);
+	}else{
+		CAM_ERR(CAM_FLASH, "Invalid argument \n");
+		return -1;
+	}
+
+	return 0;
+
+}
+/*ZTEMT: fengxun add for flash debug--------End*/
 static int cam_flash_set_gpio(struct cam_flash_ctrl *fctrl,
 	bool enable)
 {
