@@ -22,8 +22,10 @@
 #include <soc/qcom/qseecomi.h>
 #include <soc/qcom/qtee_shmbridge.h>
 
-/* QSEE_LOG_BUF_SIZE = 32K */
-#define QSEE_LOG_BUF_SIZE 0x8000
+///* QSEE_LOG_BUF_SIZE = 32K */
+//#define QSEE_LOG_BUF_SIZE 0x8000
+/* QSEE_LOG_BUF_SIZE = 256K */
+#define QSEE_LOG_BUF_SIZE 0x40000
 
 
 /* TZ Diagnostic Area legacy version number */
