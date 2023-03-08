@@ -763,4 +763,7 @@ config KEYBOARD_MTK_PMIC
 	  To compile this driver as a module, choose M here: the
 	  module will be called pmic-keys.
 
+source "drivers/input/keyboard/cy8c4014l_touchkey/Kconfig"
+source "drivers/input/keyboard/cy8c4014l_touchkey_left/Kconfig"
+
 endif
