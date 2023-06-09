@@ -106,7 +106,24 @@
 		keyreset-need-panic;
 		key_down_delay = <20>;
 	};
+
+	qmi-tmd-devices {
+		cdsp {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: hvx {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
+		};
+	};
 };
+
 &qupv3_se4_i2c {
 	status = "ok";
 	cypress_touchkey@10 {
@@ -225,6 +242,10 @@
 		pinctrl-0 = <&nubia_gpio_default>;
 		pinctrl-1 = <&nubia_gpio_pulldown>;
 	};
+
+	qcom,qbt_handler {
+		/delete-property/ qcom,ipc-gpio;
+	};
 };
 
 &soc {
@@ -239,4 +260,157 @@
 
 &pm8150b_fg {
 	qcom,fg-force-load-profile;//add by nubia
+};
+
+&thermal_zones {
+	xo-therm-usr {
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
+	};
+
+	gpu-skin-avg-step {
+		polling-delay-passive = <1000>;
+		polling-delay = <5000>;
+		thermal-governor = "step_wise";
+		trips {
+			virt_trip: virt-trip {
+				temperature = <125000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu_cdev {
+				trip = <&virt_trip>;
+				cooling-device = <&msm_gpu 0 1>;
+			};
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/ vdd-io-supply;
+	/delete-property/ qcom,vdd-io-voltage-level;
+	/delete-property/ qcom,vdd-io-current-level;
+};
+
+&pcie1 {
+	/delete-property/ wake-gpio;
+
+	perst-gpio = <&tlmm 159 0>;
+	pinctrl-0 = <&pcie1_clkreq_default
+			&pcie1_perst_default>;
+};
+
+&pcie1_perst_default {
+	mux {
+		pins = "gpio159";
+	};
+
+	config {
+		pins = "gpio159";
+	};
+};
+
+&sde_dsi_active {
+	mux {
+		pins = "gpio75";
+	};
+
+	config {
+		pins = "gpio75";
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio75";
+	};
+
+	config {
+		pins = "gpio75";
+	};
+};
+
+&tsif0_signals_active {
+	tsif1_data {
+		pins = "gpio67"; /* TSIF0 DATA */
+	};
+
+	signals_cfg {
+		pins = "gpio69", "gpio70","gpio67";
+	};
+};
+
+&tsif0_sync_active {
+	tsif1_sync {
+		pins = "gpio68"; /* TSIF0 SYNC */
+	};
+};
+
+&usb2_id_det_default {
+	config {
+		pins = "gpio84";
+	};
+};
+
+&qupv3_se8_spi {
+	/delete-property/ pinctrl-0;
+	/delete-property/ pinctrl-1;
+};
+
+&qupv3_se11_spi {
+	/delete-property/ pinctrl-0;
+	/delete-property/ pinctrl-1;
+};
+
+&L6C {
+	regulator-min-microvolt = <3312000>; //1800000
+	regulator-max-microvolt = <3312000>;
+	qcom,init-voltage = <3312000>; //1800000
+	qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+};
+
+&L9C {
+	qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+};
+
+&L10C {
+	regulator-max-microvolt = <3112000>;
+};
+
+&L11C {
+	regulator-min-microvolt = <3000000>;
+	qcom,init-voltage = <3000000>;
+};
+
+&firmware {
+	android {
+		vbmeta {
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+		};
+
+		fstab {
+			vendor {
+				fsmgr_flags = "wait,avb";
+			};
+		};
+	};
+};
+
+&qupv3_se15_i2c {
+	/delete-node/ nq@64;
+};
+
+&pm8150l_gpios {
+	fan_gpio11 {
+		fan_gpio11_default: fan_gpio11_default {
+			pins = "gpio11";
+			function = "normal";
+			power-source = <0>;
+			input-disable;
+			output-enable;
+			output-low;
+		};
+	};
 };
