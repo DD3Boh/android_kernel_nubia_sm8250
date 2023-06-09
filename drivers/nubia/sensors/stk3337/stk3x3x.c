@@ -33,7 +33,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/errno.h>
-#include <linux/wakelock.h>
+#include <linux/pm_wakeup.h>
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
 #include   <linux/fs.h>
@@ -387,12 +387,12 @@ struct stk3x3x_data {
 	int32_t ps_distance_last;
 	bool ps_enabled;
 	bool re_enable_ps;
-	struct wake_lock ps_wakelock;
+	struct wakeup_source *ps_wakeup;
 #ifdef STK_POLL_PS
 	struct hrtimer ps_timer;
 	struct work_struct stk_ps_work;
 	struct workqueue_struct *stk_ps_wq;
-	struct wake_lock ps_nosuspend_wl;
+	struct wakeup_source *ps_nosuspend_ws;
 #endif
 	struct input_dev *als_input_dev;
 	int32_t als_lux_last;
@@ -460,7 +460,7 @@ struct stk3x3x_data {
 	struct hrtimer ps_cali_timer;
 	struct work_struct stk_ps_cali_work;
 	struct workqueue_struct *stk_ps_cali_wq;
-	struct wake_lock ps_cali_nosuspend_wl;
+	struct wakeup_source *ps_cali_nosuspend_ws;
 
 	uint16_t prox_debug;
 	uint8_t  debug_cnt;
@@ -1176,7 +1176,7 @@ static void stk_ps_report(struct stk3x3x_data *stk_data, int nf)
 	input_event(stk_data->ps_input_dev, EV_SYN, SYN_TIME_NSEC, ktime_to_timespec(timestamp).tv_nsec);
 #endif
 	input_sync(stk_data->ps_input_dev);
-	wake_lock_timeout(&stk_data->ps_wakelock, 3*HZ);
+	__pm_wakeup_event(stk_data->ps_wakeup, 3*HZ);
 }
 
 static void stk_als_report(struct stk3x3x_data *stk_data, int als)
@@ -4281,7 +4281,7 @@ static int stk3x3x_suspend(struct device *dev)
 
 	if(stk_data->ps_enabled) {
 #ifdef STK_POLL_PS
-		wake_lock(&stk_data->ps_nosuspend_wl);
+		__pm_wakeup_event(stk_data->ps_nosuspend_ws, 0);
 #else
 		if(device_may_wakeup(&client->dev)) {
 			err = enable_irq_wake(stk_data->irq);
@@ -4333,7 +4333,7 @@ static int stk3x3x_resume(struct device *dev)
 
 	if(stk_data->ps_enabled) {
 #ifdef STK_POLL_PS
-		wake_unlock(&stk_data->ps_nosuspend_wl);
+		__pm_relax(stk_data->ps_nosuspend_ws);
 #else
 		if(device_may_wakeup(&client->dev)) {
 			err = disable_irq_wake(stk_data->irq);
@@ -4781,10 +4781,10 @@ static int stk3x3x_probe(struct i2c_client *client,
 	stk_data->client = client;
 	i2c_set_clientdata(client,stk_data);
 	mutex_init(&stk_data->io_lock);
-	wake_lock_init(&stk_data->ps_wakelock,WAKE_LOCK_SUSPEND, "stk_input_wakelock");
+	stk_data->ps_wakeup = wakeup_source_register(&client->dev, "stk_input_wakeup");
 
 #ifdef STK_POLL_PS
-	wake_lock_init(&stk_data->ps_nosuspend_wl,WAKE_LOCK_SUSPEND, "stk_nosuspend_wakelock");
+	stk_data->ps_nosuspend_ws = wakeup_source_register(&client->dev, "stk_nosuspend_wakeup");
 #endif
 
 	if (client->dev.of_node) {
@@ -4939,9 +4939,9 @@ err_power_on:
 err_stk_input_allocate:
 err_als_input_allocate:
 #ifdef STK_POLL_PS
-	wake_lock_destroy(&stk_data->ps_nosuspend_wl);
+	wakeup_source_unregister(stk_data->ps_nosuspend_ws);
 #endif
-	wake_lock_destroy(&stk_data->ps_wakelock);
+	wakeup_source_unregister(stk_data->ps_wakeup);
 	mutex_destroy(&stk_data->io_lock);
 	kfree(stk_data);
 	return err;
@@ -4993,9 +4993,9 @@ static int stk3x3x_remove(struct i2c_client *client)
 #if (!defined(STK_POLL_ALS) || !defined(STK_POLL_PS))
 	destroy_workqueue(stk_data->stk_wq);
 #endif
-	wake_lock_destroy(&stk_data->ps_nosuspend_wl);
+	stk_data->ps_nosuspend_ws = wakeup_source_register(&client->dev, "ps_nosuspend_ws");
 #endif
-	wake_lock_destroy(&stk_data->ps_wakelock);
+	stk_data->ps_wakeup = wakeup_source_register(&client->dev, "ps_wakeup");
 	mutex_destroy(&stk_data->io_lock);
 	kfree(stk_data);
 
