@@ -90,7 +90,7 @@ void RamWrite32A(unsigned int addr, unsigned int data)
     write_setting.reg_setting = reg_setting;
     write_setting.size = 4;
 
-    rc = cam_cci_i2c_write_continuous_table(&ois_master_info,&write_setting,0);
+    rc = cam_cci_i2c_write_continuous_table(&ois_master_info, &write_setting, 0, false);
 
     if (rc < 0) {
         pr_err("%s: line %d rc = %d\n", __func__, __LINE__, rc);
@@ -155,7 +155,7 @@ void CntWrt( void *	PcSetDat, unsigned short UsDatNum )
     write_setting.reg_setting = reg_setting;
     write_setting.size = uNum;
 
-    rc = cam_cci_i2c_write_continuous_table(&ois_master_info,&write_setting,0);
+    rc = cam_cci_i2c_write_continuous_table(&ois_master_info, &write_setting, 0, false);
 
     if (rc < 0) {
         pr_err("%s: line %d rc = %d\n", __func__, __LINE__, rc);
@@ -763,7 +763,7 @@ int32_t msm_nubia_eeprom_unlock_write(void)
 	write_setting.delay = 0;
 	write_setting.reg_setting = unlock_reg;
 	write_setting.size = 1;
-	rc = camera_io_dev_write(&ois_master_info, &write_setting);
+	rc = camera_io_dev_write(&ois_master_info, &write_setting, false);
 	if (rc < 0)
 	{
 		CAM_ERR(CAM_SENSOR, "camera_io_dev_write  [unlock] error");
@@ -803,7 +803,7 @@ int32_t msm_nubia_eeprom_lock_write(void)
 	write_setting.delay = 0;
 	write_setting.reg_setting = lock_reg;
 	write_setting.size = 1;
-	rc = camera_io_dev_write(&ois_master_info, &write_setting);
+	rc = camera_io_dev_write(&ois_master_info, &write_setting, false);
 	if (rc < 0)
 	{
 		CAM_ERR(CAM_SENSOR, "camera_io_dev_write  [lock] error");
