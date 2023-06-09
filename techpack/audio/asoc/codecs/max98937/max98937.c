@@ -790,6 +790,7 @@ static int max989xx_calib_get(uint32_t* calib_value, int ch)
 	return found;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int max989xx_calib_save (uint32_t calib_value, int ch)
 {
 	struct file *pfile = NULL;
@@ -837,6 +838,7 @@ static int max989xx_calib_save (uint32_t calib_value, int ch)
 
 	return ret;
 }
+#endif
 
 static inline bool rdc_check_valid(uint32_t rdc, int ch)
 {
