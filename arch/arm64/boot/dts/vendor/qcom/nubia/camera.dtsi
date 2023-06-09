@@ -903,30 +903,6 @@
 	};
 };
 
-&cam_sensor_active_rear {
-	mux {
-		pins = "gpio93", "gpio71", "gpio72";
-	};
-
-	config {
-		pins = "gpio93", "gpio71", "gpio72";
-	};
-};
-
-&cam_sensor_suspend_rear {
-	mux {
-		pins = "gpio93", "gpio71", "gpio72";
-	};
-
-	config {
-		pins = "gpio93", "gpio71", "gpio72";
-	};
-};
-
-&S5A {
-	qcom,init-voltage = <1950000>;
-};
-
 &pm8150l_flash0 {
 	qcom,duration-ms = <500>;
 };
