@@ -124,5 +124,50 @@
 };
 
 &sde_dsi {
+	/delete-property/ avdd-supply;
 	qcom,dsi-default-panel = <&dsi_r66451_1080p_amoled_new_cmd>;
+};
+
+&sde_dsi1 {
+	/delete-property/ avdd-supply;
+};
+
+&L14A {
+	qcom,init-voltage = <1880000>;
+};
+
+&tlmm {
+	/delete-node/ display_panel_avdd_default;
+};
+
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@0 {
+		/delete-property/ qcom,supply-post-on-sleep;
+		qcom,supply-min-voltage = <1880000>;
+		qcom,supply-max-voltage = <1880000>;
+	};
+
+	qcom,panel-supply-entry@1 {
+		qcom,supply-min-voltage = <3000000>;
+		qcom,supply-max-voltage = <3000000>;
+	};
+};
+
+&soc {
+	/delete-node/ display_gpio_regulator@1;
+};
+
+&ab_vreg {
+	qcom,aod-pd-control;
+};
+
+&ibb_vreg {
+	qcom,aod-pd-control;
+};
+
+&dsi_sw43404_amoled_cmd {
+	/delete-property/ qcom,mdss-dsi-panel-status-value;
+	/delete-property/ qcom,mdss-dsi-panel-test-pin;
+	qcom,mdss-dsi-panel-on-check-value = <0x1c>;
+	qcom,panel-mode-gpio = <&tlmm 46 0>;
 };
