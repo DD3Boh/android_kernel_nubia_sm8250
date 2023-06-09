@@ -132,10 +132,6 @@
 	/delete-property/ avdd-supply;
 };
 
-&L14A {
-	qcom,init-voltage = <1880000>;
-};
-
 &tlmm {
 	/delete-node/ display_panel_avdd_default;
 };
