@@ -18,6 +18,10 @@
 	qcom,lcd-on-limit-enable;
 	qcom,lcd-on-limit-temp = <400>;
 	qcom,lcd-on-limit-fcc = <2000000>;
+	qcom,sec-charger-config = <0>;
+
+	qcom,thermal-mitigation
+		= <10000000 10000000 10000000 10000000>;
 };
 
 &pm8150b_fg {
@@ -45,6 +49,11 @@
 
 &qupv3_se15_i2c{
 	status = "okay";
+
+	/delete-node/ halo,hl6111r@25;
+	/delete-node/ qcom,smb1390@10;
+	/delete-node/ qcom,smb1390_slave@18;
+
 	pca9468@57 {
 		compatible = "nxp,pca9468";
 		reg = <0x57>;
@@ -96,6 +105,7 @@
 								  531 1000 4100000>;
 	};
 };
+
 &tlmm {
 	pca9468_int_default_pin {
 		pca9468_master_int_default: pca9468_master_int_default {
