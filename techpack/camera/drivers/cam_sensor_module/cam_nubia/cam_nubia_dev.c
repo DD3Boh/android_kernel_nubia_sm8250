@@ -90,7 +90,7 @@ int32_t cam_nubia_eeprom_unlock_write(void)
 	write_setting.reg_setting = unlock_reg;
 	write_setting.size = 1;
 
-	rc = camera_io_dev_write(&eeprom_master_info, &write_setting);
+	rc = camera_io_dev_write(&eeprom_master_info, &write_setting, false);
 	if (rc < 0)
 	{
 		CAM_ERR(CAM_EEPROM, "camera_io_dev_write  [unlock] error");
@@ -131,7 +131,7 @@ int32_t cam_nubia_eeprom_lock_write(void)
 	write_setting.delay = 0;
 	write_setting.reg_setting = lock_reg;
 	write_setting.size = 1;
-	rc = camera_io_dev_write(&eeprom_master_info, &write_setting);
+	rc = camera_io_dev_write(&eeprom_master_info, &write_setting, false);
 	if (rc < 0)
 	{
 		CAM_ERR(CAM_SENSOR, "camera_io_dev_write  [lock] error");
@@ -201,7 +201,7 @@ int32_t cam_nubia_i2c_write_seq(uint32_t addr, uint8_t *data, uint32_t num_byte)
 		write_setting.reg_setting = write_buf;
 		write_setting.size = write_width;
 
-		rc = cam_cci_i2c_write_continuous_table(&eeprom_master_info, &write_setting, 0);
+		rc = cam_cci_i2c_write_continuous_table(&eeprom_master_info, &write_setting, 0, false);
 		if ( rc < 0)
 		{
 			CAM_ERR(CAM_EEPROM, "%s nubia_i2c_write_seq error\n", __func__);
