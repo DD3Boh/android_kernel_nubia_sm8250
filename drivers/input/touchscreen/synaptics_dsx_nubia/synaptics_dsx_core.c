@@ -5062,12 +5062,12 @@ power_off:
  * @core_data: pointer to touch core data
  * return: 0 ok, <0 failed
  */
-static int synaptics_ts_pinctrl_init(struct device *dev, struct synaptics_rmi4_data *bdata)
+static int synaptics_ts_pinctrl_init(struct synaptics_rmi4_data *bdata)
 {
         int r = 0;
 
         /* get pinctrl handler from of node */
-        bdata->pinctrl = devm_pinctrl_get(dev);
+        bdata->pinctrl = devm_pinctrl_get((bdata->pdev->dev.parent));
         if (IS_ERR_OR_NULL(bdata->pinctrl)) {
                 pr_info("%s:Failed to get pinctrl handler", __func__);
                 return PTR_ERR(bdata->pinctrl);
@@ -5170,7 +5170,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 #ifdef MORGEN_CONFIG_PINCTRL
         /* Pinctrl handle is optional. */
         pr_info("%s:start synaptics_ts_pinctrl_init\n", __func__);
-        retval = synaptics_ts_pinctrl_init(&bdata->client->dev ,rmi4_data);
+        retval = synaptics_ts_pinctrl_init(rmi4_data);;
         if (!retval && rmi4_data->pinctrl) {
                 pr_info("%s:synaptics_ts_pinctrl_init\n", __func__);
                 retval = pinctrl_select_state(rmi4_data->pinctrl,
