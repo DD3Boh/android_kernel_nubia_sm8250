@@ -14,4 +14,4 @@
 	qcom,board-id = <0x10008 0>;
 };
 
-#include "nubia/head.dtsi"
+#include "nubia/base-overlay.dtsi"
