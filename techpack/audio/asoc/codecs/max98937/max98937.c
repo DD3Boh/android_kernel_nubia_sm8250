@@ -595,6 +595,7 @@ struct param_info {
 //#define EAR_RDC_MIN  (272062962)  // 6.75 / 3.33 * (1<<27)
 //#define EAR_RDC_MAX  (332521399)  // 8.25 / 3.33 * (1<<27)
 //#define EAR_RDC_DEFAULT (302292180)  // 7.5 / 3.33 * 134217728
+#endif
 
 //Speaker DC resistance is 6.9 +/-13% (6.00 --> 7.80)
 //1<<27 is 134217728, for example: 5.4 / 3.33 * 134217728 = 217650370
@@ -607,9 +608,6 @@ struct param_info {
 #define EAR_RDC_MIN  (245864306)  // 6.10 / 3.33 * (1<<27)
 #define EAR_RDC_MAX  (322444992)  // 8.00 / 3.33 * (1<<27)
 #define EAR_RDC_DEFAULT (286169930)  // 7.10 / 3.33 * 134217728
-
-
-#endif
 
 static struct {
 	bool l_calib_stat;
