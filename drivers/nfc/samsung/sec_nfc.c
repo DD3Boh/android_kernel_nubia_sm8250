@@ -45,7 +45,7 @@
 #ifdef CONFIG_SEC_NFC_CLK_REQ
 #include <linux/interrupt.h>
 #endif
-#include "wakelock.h"
+#include <linux/pm_wakeup.h>
 #include <linux/of_gpio.h>
 #include <linux/clk.h>
 
@@ -92,7 +92,7 @@ struct sec_nfc_info {
 	struct device *dev;
 	struct sec_nfc_platform_data *pdata;
 	struct sec_nfc_i2c_info i2c_info;
-	struct wake_lock nfc_wake_lock;
+	struct wakeup_source *nfc_wakeup;
 #ifdef	CONFIG_SEC_NFC_CLK_REQ
 	bool clk_ctl;
 	bool clk_state;
@@ -130,7 +130,7 @@ static irqreturn_t sec_nfc_irq_thread_fn(int irq, void *dev_id)
 	mutex_unlock(&info->i2c_info.read_mutex);
 
 	wake_up_interruptible(&info->i2c_info.read_wait);
-	wake_lock_timeout(&info->nfc_wake_lock, 2*HZ);
+	__pm_wakeup_event(info->nfc_wakeup, 2*HZ);
 
 	return IRQ_HANDLED;
 }
@@ -528,8 +528,7 @@ static void sec_nfc_set_mode(struct sec_nfc_info *info,
 #endif
 	}
 
-	if(wake_lock_active(&info->nfc_wake_lock))
-		wake_unlock(&info->nfc_wake_lock);
+	__pm_relax(info->nfc_wakeup);
 
 	dev_dbg(info->dev, "Power mode is : %d\n", mode);
 }
@@ -572,8 +571,7 @@ static long sec_nfc_ioctl(struct file *file, unsigned int cmd,
 #elif defined(CONFIG_SEC_NFC_PRODUCT_N5) || defined(CONFIG_SEC_NFC_PRODUCT_N7)
 	case SEC_NFC_SLEEP:
 		if (info->mode != SEC_NFC_MODE_BOOTLOADER) {
-			if(wake_lock_active(&info->nfc_wake_lock))
-				wake_unlock(&info->nfc_wake_lock);
+			__pm_relax(info->nfc_wakeup);
 			gpio_set_value(pdata->wake, SEC_NFC_WAKE_SLEEP);
 		}
 		break;
@@ -581,8 +579,7 @@ static long sec_nfc_ioctl(struct file *file, unsigned int cmd,
 	case SEC_NFC_WAKEUP:
 		if (info->mode != SEC_NFC_MODE_BOOTLOADER) {
 			gpio_set_value(pdata->wake, SEC_NFC_WAKE_UP);
-			if(!wake_lock_active(&info->nfc_wake_lock))
-				wake_lock(&info->nfc_wake_lock);
+			__pm_wakeup_event(info->nfc_wakeup, 0);
 		}
 		break;
 #endif
@@ -849,8 +846,7 @@ static int __sec_nfc_probe(struct device *dev)
 		goto err_gpio_clk;
 	}
     gpio_direction_input(pdata->clk_req);
-	wake_lock_init(&info->nfc_wake_lock, WAKE_LOCK_SUSPEND, "nfc_wake_lock");
-
+	info->nfc_wakeup = wakeup_source_register(dev, "nfc_wakeup");
 
 	dev_dbg(dev, "%s: success info: %p, pdata %p\n", __func__, info, pdata);
 
@@ -890,7 +886,7 @@ static int __sec_nfc_remove(struct device *dev)
 	free_irq(client->irq, info);
 	gpio_free(pdata->irq);
 
-	wake_lock_destroy(&info->nfc_wake_lock);
+	wakeup_source_unregister(info->nfc_wakeup);
 
 	kfree(info);
 
