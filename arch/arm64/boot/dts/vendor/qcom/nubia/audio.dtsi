@@ -146,3 +146,11 @@
 		maxim,98927-reset-gpio = <&tlmm 63 0>;
 	};
 };
+
+&cdc_tert_mi2s_gpios {
+	status = "disabled";
+};
+
+&kona_snd {
+	qcom,tert-mi2s-gpios = <>;
+};
