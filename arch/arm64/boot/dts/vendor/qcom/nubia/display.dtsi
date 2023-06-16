@@ -2,6 +2,9 @@
 #include "dsi_r66451_1080_2340_amoled_cmd.dtsi"
 #include "dsi_r66451_1080_2340_amoled_new_cmd.dtsi"
 
+/* Deletions by symlinks */
+/delete-node/ &display_panel_avdd;
+/delete-node/ &display_panel_avdd_default;
 
 /* Bx, include 60 90 120 144Hz*/
 &dsi_r66451_1080p_amoled_new_cmd {
@@ -132,10 +135,6 @@
 	/delete-property/ avdd-supply;
 };
 
-&tlmm {
-	/delete-node/ display_panel_avdd_default;
-};
-
 &dsi_panel_pwr_supply {
 	qcom,panel-supply-entry@0 {
 		/delete-property/ qcom,supply-post-on-sleep;
@@ -147,10 +146,6 @@
 		qcom,supply-min-voltage = <3000000>;
 		qcom,supply-max-voltage = <3000000>;
 	};
-};
-
-&soc {
-	/delete-node/ display_gpio_regulator@1;
 };
 
 &ab_vreg {
