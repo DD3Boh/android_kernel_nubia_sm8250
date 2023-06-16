@@ -228,7 +228,7 @@
 	};
 
 	qcom,qbt_handler {
-		/delete-property/ qcom,ipc-gpio;
+		qcom,ipc-gpio = <>;
 	};
 };
 
@@ -273,9 +273,9 @@
 };
 
 &sdhc_2 {
-	/delete-property/ vdd-io-supply;
-	/delete-property/ qcom,vdd-io-voltage-level;
-	/delete-property/ qcom,vdd-io-current-level;
+	vdd-io-supply = <>;
+	qcom,vdd-io-voltage-level = <>;
+	qcom,vdd-io-current-level = <>;
 };
 
 &pm8150l_gpios {
