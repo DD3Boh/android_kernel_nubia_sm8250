@@ -177,7 +177,6 @@ static enum power_supply_property neo_battery_properties[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 };
@@ -277,21 +276,6 @@ static void spmi_dump_regs(struct neo_battery_data *chip)
 	}
 	printk("CHG:%s\n",pbuf);
 }
-
-static ssize_t neo_battery_show_charge_full_design(struct device *dev,
-			    struct device_attribute *attr, char *buf)
-{
-
-	struct power_supply *neo = power_supply_get_by_name("neo-battery");
-	struct neo_battery_data *chip = power_supply_get_drvdata(neo);
-
-	if(!chip){
-		return 0;
-	}
-
-	return sprintf(buf, "%d\n", chip->dt.batt_capacity_uah);
-}
-static DEVICE_ATTR(charge_full_design, S_IRUGO, neo_battery_show_charge_full_design, NULL);
 
 static ssize_t neo_battery_update_battery_information(struct device *dev,
 			    struct device_attribute *attr, const char *buf, size_t count)
@@ -566,19 +550,6 @@ int neo_battery_get_batt_charge_full(struct neo_battery_data *chip,
 	return rc;
 }
 
-int neo_battery_get_batt_charge_full_design(struct neo_battery_data *chip,
-				     union power_supply_propval *val)
-{
-	int rc;
-
-	if (!chip->bms_psy)
-		return -EINVAL;
-
-	rc = power_supply_get_property(chip->bms_psy,
-				       POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, val);
-	chip->param.batt_full_design = val->intval;
-	return rc;
-}
 int neo_battery_get_batt_charge_counter(struct neo_battery_data *chip,
 				     union power_supply_propval *val)
 {
@@ -646,9 +617,6 @@ static int neo_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = neo_battery_get_batt_charge_full(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		rc = neo_battery_get_batt_charge_full_design(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = neo_battery_get_batt_charge_counter(chip, val);
@@ -737,9 +705,6 @@ static int create_debugfs_entries(struct neo_battery_data *chip)
 	}
 
 	if(chip->batt_psy) {
-		rc = device_create_file(&chip->batt_psy->dev, &dev_attr_charge_full_design);
-		if(rc)
-			device_remove_file(&chip->batt_psy->dev, &dev_attr_charge_full_design);
 		rc = device_create_file(&chip->batt_psy->dev, &dev_attr_update_now);
 		if(rc)
 			device_remove_file(&chip->batt_psy->dev, &dev_attr_update_now);
