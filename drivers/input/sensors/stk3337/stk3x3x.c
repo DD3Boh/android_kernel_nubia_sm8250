@@ -33,7 +33,6 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/errno.h>
-#include <linux/wakelock.h>
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
 #include   <linux/fs.h>
@@ -387,12 +386,10 @@ struct stk3x3x_data {
 	int32_t ps_distance_last;
 	bool ps_enabled;
 	bool re_enable_ps;
-	struct wake_lock ps_wakelock;
 #ifdef STK_POLL_PS
 	struct hrtimer ps_timer;
 	struct work_struct stk_ps_work;
 	struct workqueue_struct *stk_ps_wq;
-	struct wake_lock ps_nosuspend_wl;
 #endif
 	struct input_dev *als_input_dev;
 	int32_t als_lux_last;
@@ -460,7 +457,6 @@ struct stk3x3x_data {
 	struct hrtimer ps_cali_timer;
 	struct work_struct stk_ps_cali_work;
 	struct workqueue_struct *stk_ps_cali_wq;
-	struct wake_lock ps_cali_nosuspend_wl;
 
 	uint16_t prox_debug;
 	uint8_t  debug_cnt;
@@ -1176,7 +1172,7 @@ static void stk_ps_report(struct stk3x3x_data *stk_data, int nf)
 	input_event(stk_data->ps_input_dev, EV_SYN, SYN_TIME_NSEC, ktime_to_timespec(timestamp).tv_nsec);
 #endif
 	input_sync(stk_data->ps_input_dev);
-	wake_lock_timeout(&stk_data->ps_wakelock, 3*HZ);
+	pm_wakeup_event(stk_data->ps_dev, jiffies_to_msecs(3*HZ));
 }
 
 static void stk_als_report(struct stk3x3x_data *stk_data, int als)
@@ -4094,7 +4090,6 @@ static int stk3x3x_als_fast_report_init(struct stk3x3x_data *stk_data)
 	static uint8_t old_als_ctrl_reg = 0;
 	uint8_t als_it, als_gain;
 	int ret;
-	unsigned char value[6];
 
 	if(stk_data->als_fast_report == true) {
 		ret = stk3x3x_i2c_smbus_read_byte_data(stk_data->client,STK_ALSCTRL_REG);//backup old als reg
@@ -4105,16 +4100,12 @@ static int stk3x3x_als_fast_report_init(struct stk3x3x_data *stk_data)
 		old_als_ctrl_reg = (uint8_t)ret;
 		SENSOR_LOG_INFO("Backup old alsctrl_reg 0x%x\n", old_als_ctrl_reg);
 		stk3x3x_set_als_ctrl(stk_data, STK_IT_ALS_25MS, STK_ALS_GAIN_16);
-		msleep(50);
-		stk3x3x_i2c_read_data(stk_data->client, STK_DATA1_ALS_REG, 6, &value[0]);
 	}
 	if(stk_data->als_fast_report == false) { //recovery old als reg
 		als_it = old_als_ctrl_reg & STK_ALS_IT_MASK;
 		als_gain = old_als_ctrl_reg & STK_ALS_GAIN_MASK;
 		SENSOR_LOG_INFO("set old alsctrl_reg 0x%x\n", old_als_ctrl_reg);
 		stk3x3x_set_als_ctrl(stk_data, als_it, als_gain);
-		msleep(100);
-		stk3x3x_i2c_read_data(stk_data->client, STK_DATA1_ALS_REG, 6, &value[0]);
 	}
 	return ret;
 }
@@ -4281,7 +4272,7 @@ static int stk3x3x_suspend(struct device *dev)
 
 	if(stk_data->ps_enabled) {
 #ifdef STK_POLL_PS
-		wake_lock(&stk_data->ps_nosuspend_wl);
+		pm_stay_awake(stk_data->ps_dev);
 #else
 		if(device_may_wakeup(&client->dev)) {
 			err = enable_irq_wake(stk_data->irq);
@@ -4333,7 +4324,7 @@ static int stk3x3x_resume(struct device *dev)
 
 	if(stk_data->ps_enabled) {
 #ifdef STK_POLL_PS
-		wake_unlock(&stk_data->ps_nosuspend_wl);
+		pm_relax(stk_data->ps_dev);
 #else
 		if(device_may_wakeup(&client->dev)) {
 			err = disable_irq_wake(stk_data->irq);
@@ -4781,10 +4772,9 @@ static int stk3x3x_probe(struct i2c_client *client,
 	stk_data->client = client;
 	i2c_set_clientdata(client,stk_data);
 	mutex_init(&stk_data->io_lock);
-	wake_lock_init(&stk_data->ps_wakelock,WAKE_LOCK_SUSPEND, "stk_input_wakelock");
-
+	device_init_wakeup(stk_data->ps_dev, true);
 #ifdef STK_POLL_PS
-	wake_lock_init(&stk_data->ps_nosuspend_wl,WAKE_LOCK_SUSPEND, "stk_nosuspend_wakelock");
+	device_init_wakeup(stk_data->als_dev, true);
 #endif
 
 	if (client->dev.of_node) {
@@ -4890,7 +4880,6 @@ static int stk3x3x_probe(struct i2c_client *client,
 	SENSOR_LOG_INFO(" probe successfully");
 	return 0;
 
-	//device_init_wakeup(&client->dev, false);
 #ifdef STK_QUALCOMM_POWER_CTRL
 err_power_ctl:
 #endif
@@ -4938,10 +4927,6 @@ err_power_on:
 #endif
 err_stk_input_allocate:
 err_als_input_allocate:
-#ifdef STK_POLL_PS
-	wake_lock_destroy(&stk_data->ps_nosuspend_wl);
-#endif
-	wake_lock_destroy(&stk_data->ps_wakelock);
 	mutex_destroy(&stk_data->io_lock);
 	kfree(stk_data);
 	return err;
@@ -4993,9 +4978,7 @@ static int stk3x3x_remove(struct i2c_client *client)
 #if (!defined(STK_POLL_ALS) || !defined(STK_POLL_PS))
 	destroy_workqueue(stk_data->stk_wq);
 #endif
-	wake_lock_destroy(&stk_data->ps_nosuspend_wl);
 #endif
-	wake_lock_destroy(&stk_data->ps_wakelock);
 	mutex_destroy(&stk_data->io_lock);
 	kfree(stk_data);
 
