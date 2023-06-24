@@ -676,26 +676,20 @@ static void fan_set_pwm_by_level(unsigned int level)
 
 static void smart_fan_func(struct work_struct *work) {
 	struct fan *fan = container_of(to_delayed_work(work), typeof(*fan), smart_fan_work);
-	static int level = 0, i = 0, total = 0, temp = 0;
-	char thermal[15];
+	static int level = 0, temp = 0;
 
 	if (fan_smart && screen_status) {
-		for (i = 0; i <= 7; i++) {
-			sprintf(thermal, "cpu-1-%i-usr", i);
-			thermal_zone_get_temp(thermal_zone_get_zone_by_name(thermal), &temp);
-			total += temp;
-		}
-		total /= 8;
+		thermal_zone_get_temp(thermal_zone_get_zone_by_name("gpu-skin-avg-step"), &temp);
 
-		if (total > 57000)
+		if (temp > 50000)
 			level = 5;
-		else if (total > 53000)
+		else if (temp > 47000)
 			level = 4;
-		else if (total > 49000)
+		else if (temp > 43000)
 			level = 3;
-		else if (total > 46000)
+		else if (temp > 39000)
 			level = 2;
-		else if (total > 40000)
+		else if (temp > 35000)
 			level = 1;
 		else
 			level = 0;
