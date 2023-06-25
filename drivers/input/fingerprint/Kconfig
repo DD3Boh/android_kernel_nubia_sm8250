@@ -1,0 +1,6 @@
+config NUBIA_FINGERPRINT
+	tristate "Nubia's goodix under-display fingerprint driver"
+	depends on MACH_NUBIA_NX659J
+	default y
+	help
+		Add support for goodix under-display fingerprint driver.
