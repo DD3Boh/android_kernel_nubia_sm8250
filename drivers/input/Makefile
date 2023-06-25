@@ -33,3 +33,4 @@ obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
 
 obj-$(CONFIG_NUBIA_FINGERPRINT)	+= fingerprint/
+obj-$(CONFIG_NUBIA_SENSORS)	+= sensors/
