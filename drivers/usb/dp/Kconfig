@@ -1,0 +1,9 @@
+#
+# ZTE SoC drivers
+#
+
+config NUBIA_DP
+	bool "NUBIA USB DP"
+	default y
+	help
+	  USB switch to Nubia's display port function
