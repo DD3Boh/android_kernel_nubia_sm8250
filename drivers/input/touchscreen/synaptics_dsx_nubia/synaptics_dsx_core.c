@@ -204,13 +204,6 @@ static ssize_t synaptics_rmi4_synad_pid_store(struct device *dev,
 static ssize_t synaptics_rmi4_virtual_key_map_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf);
 
-#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
-static inline ssize_t synaptics_nubia_gamemode_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-static inline ssize_t synaptics_nubia_gamemode_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-#endif
-
 struct synaptics_rmi4_f01_device_status {
 	union {
 		struct {
@@ -760,11 +753,39 @@ static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
 	return size;
 }
 
+static int nubia_synap_gamemode_enable(struct synaptics_rmi4_data *rmi4_data, bool on);
+
+static inline ssize_t synaptics_nubia_report_rate_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d %d\n",
+			g_rmi4_data->game_mode, g_rmi4_data->game_on_flag);
+}
+
+static inline ssize_t synaptics_nubia_report_rate_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int input;
+
+	if (sscanf(buf, "%d", &input) != 1)
+		return -EINVAL;
+
+	input = input > 0 ? 1 : 0;
+	if (g_rmi4_data->suspend == false) {
+		g_rmi4_data->game_mode = input;
+		nubia_synap_gamemode_enable(g_rmi4_data, g_rmi4_data->game_mode);
+	}
+	return size;
+}
+
 static struct kobject *tp_kobj = NULL;
 static struct kobj_attribute tp_node_attrs[] = {
 	__ATTR(fp_mode, 0664, synaptics_nubia_fp_mode_show,
 						synaptics_nubia_fp_mode_store),
+	__ATTR(report_rate, 0664, synaptics_nubia_report_rate_show,
+					synaptics_nubia_report_rate_store),
 };
+
 static int synaptics_nubia_sysfs_node(void)
 {
 	int retval = 0;
@@ -827,12 +848,6 @@ static struct device_attribute attrs[] = {
 	__ATTR(synad_pid, 0220,
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_synad_pid_store),
-#endif
-
-#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
-	__ATTR(gamemode, (S_IRUGO | S_IWUSR | S_IWGRP),
-			synaptics_nubia_gamemode_show,
-			synaptics_nubia_gamemode_store),
 #endif
 };
 
@@ -1118,33 +1133,6 @@ static int nubia_synap_gamemode_enable(struct synaptics_rmi4_data *rmi4_data, bo
 		return retval;
 	rmi4_data->game_on_flag = on;
 	return retval;
-}
-
-static inline ssize_t synaptics_nubia_gamemode_show(struct device *dev,
-                struct device_attribute *attr, char *buf)
-{
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%u %u\n",
-			rmi4_data->game_mode, rmi4_data->game_on_flag);
-}
-
-static inline ssize_t synaptics_nubia_gamemode_store(struct device *dev,
-                struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned int input;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
-
-	input = input > 0 ? 1 : 0;
-	pr_info("%s: ready to change for %sHz", __func__, input?"240":"120");
-	if (rmi4_data->suspend == false) {
-		rmi4_data->game_mode = input;
-		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
-	}
-	return count;
 }
 #endif
 
