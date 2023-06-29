@@ -192,12 +192,6 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
-static ssize_t synaptics_rmi4_wake_gesture_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
 #ifdef USE_DATA_SERVER
 static ssize_t synaptics_rmi4_synad_pid_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -823,12 +817,42 @@ static inline ssize_t synaptics_nubia_report_rate_store(struct kobject *kobj,
 	return size;
 }
 
+static ssize_t synaptics_rmi4_wake_gesture_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			g_rmi4_data->enable_gesture);
+}
+
+static ssize_t synaptics_rmi4_wake_gesture_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	input = input > 0 ? 1 : 0;
+
+	if (g_rmi4_data->suspend == false){
+		if (g_rmi4_data->f11_wakeup_gesture || g_rmi4_data->f12_wakeup_gesture) {
+			g_rmi4_data->gesture_flag = input;
+			g_rmi4_data->enable_gesture = input;
+		}
+	pr_err("%s enable_gesture=%d\n",__func__, input);
+	}
+
+	return size;
+}
+
 static struct kobject *tp_kobj = NULL;
 static struct kobj_attribute tp_node_attrs[] = {
 	__ATTR(fp_mode,        0664, synaptics_nubia_fp_mode_show,
 						synaptics_nubia_fp_mode_store),
 	__ATTR(report_rate, 0664, synaptics_nubia_report_rate_show,
 					synaptics_nubia_report_rate_store),
+	__ATTR(wake_gesture, 0664, synaptics_rmi4_wake_gesture_show,
+					synaptics_rmi4_wake_gesture_store),
 };
 
 static int synaptics_nubia_sysfs_node(void)
@@ -886,9 +910,6 @@ static struct device_attribute attrs[] = {
 	__ATTR(suspend, (S_IWUSR | S_IWGRP),
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_suspend_store),
-	__ATTR(wake_gesture, (S_IRUGO | S_IWUSR | S_IWGRP),
-			synaptics_rmi4_wake_gesture_show,
-			synaptics_rmi4_wake_gesture_store),
 #ifdef USE_DATA_SERVER
 	__ATTR(synad_pid, (S_IWUSR | S_IWGRP),
 			synaptics_rmi4_show_error,
@@ -1083,37 +1104,6 @@ static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 		synaptics_rmi4_resume(dev);
 	else
 		return -EINVAL;
-
-	return count;
-}
-
-static ssize_t synaptics_rmi4_wake_gesture_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-			rmi4_data->enable_gesture);
-}
-
-static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned int input;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
-
-	input = input > 0 ? 1 : 0;
-
-	if (rmi4_data->suspend == false){
-		if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture) {
-			rmi4_data->gesture_flag = input;
-			rmi4_data->enable_gesture = input;
-		}
-	pr_err("%s enable_gesture=%d\n",__func__, input);
-	}
 
 	return count;
 }
