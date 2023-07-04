@@ -904,9 +904,9 @@
 };
 
 &pm8150l_flash0 {
-	qcom,duration-ms = <500>;
+	qcom,duration-ms = <1280>;
 };
 
 &pm8150l_flash1 {
-	qcom,duration-ms = <500>;
+	qcom,duration-ms = <1280>;
 };

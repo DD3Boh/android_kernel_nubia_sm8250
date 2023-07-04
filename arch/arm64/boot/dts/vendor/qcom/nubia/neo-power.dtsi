@@ -19,7 +19,7 @@
 	qcom,usb-icl-ua = <5000000>;
 	
 	qcom,lcd-on-limit-enable;
-	qcom,lcd-on-limit-temp = <400>;
+	qcom,lcd-on-limit-temp = <380>;
 	qcom,lcd-on-limit-fcc = <2000000>;
 	qcom,sec-charger-config = <0>;
 
@@ -67,7 +67,7 @@
 		
 		usbpd-phy = <&pm8150b_pdphy>;
 		pca9468,lcd-on-limit-enable;
-		pca9468,lcd-on-limit-temp = <400>;
+		pca9468,lcd-on-limit-temp = <380>;
 		pca9468,lcd-on-limit-fcc = <2000000>;
 		pca9468,irq-gpio = <&tlmm 138 0x02>;
 		pca9468,input-current-limit = <5000000>; /* 2.0A */
@@ -123,4 +123,9 @@
 			};
 		};
 	};
+};
+
+&pm8150b_fg {
+	qcom,force-calib-level = <128>;
+	qcom,soc-scale-vbatt-mv = <3600>;
 };
