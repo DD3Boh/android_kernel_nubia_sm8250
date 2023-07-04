@@ -22,19 +22,13 @@
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
-		timing@2 { /* 62Hz */
-			qcom,mdss-dsi-panel-phy-timings = [00 11 03 04 1E 1E
-				04 04 02 02 04 00 10 14];
-			qcom,display-topology = <1 1 1>;
-			qcom,default-topology-index = <0>;
-		};
-		timing@3 { /* 120Hz */
+		timing@2 { /* 120Hz */
 			qcom,mdss-dsi-panel-phy-timings = [00 1C 07 07 23 22
 				07 07 05 02 04 00 18 17];
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
-		timing@4 { /* 144Hz */
+		timing@3 { /* 144Hz */
 			qcom,mdss-dsi-panel-phy-timings = [00 21 08 08 25 23
 				09 08 06 02 04 00 1B 18];
 			qcom,display-topology = <1 1 1>;
@@ -137,23 +131,37 @@
 
 &dsi_panel_pwr_supply {
 	qcom,panel-supply-entry@0 {
-		/delete-property/ qcom,supply-post-on-sleep;
 		qcom,supply-min-voltage = <1880000>;
 		qcom,supply-max-voltage = <1880000>;
+		qcom,supply-post-on-sleep = <5>;
+		qcom,supply-pre-off-sleep = <5>;
 	};
 
 	qcom,panel-supply-entry@1 {
 		qcom,supply-min-voltage = <3000000>;
 		qcom,supply-max-voltage = <3000000>;
+		qcom,supply-post-on-sleep = <1>;
+		qcom,supply-pre-off-sleep = <1>;
+	};
+
+	/delete-node/ qcom,panel-supply-entry@2;
+	/delete-node/ qcom,panel-supply-entry@3;
+};
+
+&dsi_panel_pwr_supply_lab_ibb {
+	qcom,panel-supply-entry@0 {
+		/delete-property/ qcom,supply-post-on-sleep;
+	};
+
+	qcom,panel-supply-entry@2 {
+		/delete-property/ qcom,supply-post-on-sleep;
 	};
 };
 
-&ab_vreg {
-	qcom,aod-pd-control;
-};
-
-&ibb_vreg {
-	qcom,aod-pd-control;
+&dsi_panel_pwr_supply_avdd {
+	qcom,panel-supply-entry@0 {
+		/delete-property/ qcom,supply-post-on-sleep;
+	};
 };
 
 &dsi_sw43404_amoled_cmd {
