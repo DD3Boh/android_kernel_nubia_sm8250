@@ -38,6 +38,24 @@
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define MIN_PREFILL_LINES      35
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+extern u8 osc_value_90;
+extern u8 osc_value_120;
+extern int fps_store;
+extern int fps_temp;
+extern u8 gamma1[144];
+extern u8 gamma2[144];
+extern u8 gamma3[144];
+extern u8 gamma4[144];
+extern u8 gamma5[144];
+extern u8 gamma6[144];
+extern u8 gamma7[144];
+extern u8 gamma8[144];
+extern u8 gamma9[144];
+extern u8 gamma10[144];
+bool enable_flag = 0;
+#endif
+
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
 	DSC_10BPC_8BPP,
@@ -99,6 +117,16 @@ static char dsi_dsc_rc_range_max_qp_1_1_scr1[][15] = {
  */
 static char dsi_dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 		-8, -10, -10, -12, -12, -12, -12};
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+extern void dsi_display_config_panel(struct dsi_panel *panel);
+
+/**
+** 659 has two panls, one for 66455, 66455 used for NX629J
+** 66451 for NX659, add flag to distinguish 66455 and 66451
+**/
+extern bool is_66451_panel;
+#endif
 
 #ifdef CONFIG_MACH_NUBIA_NX659J
 static BLOCKING_NOTIFIER_HEAD(msm_drm_panel_notifier_list);
@@ -3409,6 +3437,57 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+/*****
+****** write osc freq:
+****** dfps: 60/90fps for 100MHz
+******       120/144fps for 122MHz
+*****/
+void nubia_write_panel_osc_timing(uint32_t dfps, struct mipi_dsi_device *dsi)
+{
+	u8 cmd1[1] = {0x04};
+	u8 cmd2[2] = {0x00, 0x02};
+	u8 cmd3[2] = {0x00, 0x00};
+
+	if ((dfps == 60) || (dfps == 62) || (dfps == 90))
+		cmd3[1] = osc_value_90;
+	else
+		cmd3[1] = osc_value_120;
+	pr_debug("%s:  osc_value_90 = %d \n", __func__, osc_value_90);
+	pr_debug("%s:  osc_value_120 = %d \n",__func__,  osc_value_120);
+	mipi_dsi_dcs_write(dsi, 0xB0, cmd1, sizeof(cmd1));
+	mipi_dsi_dcs_write(dsi, 0xE8, cmd2, sizeof(cmd2));
+	mipi_dsi_dcs_write(dsi, 0xE4, cmd3, sizeof(cmd3));
+}
+
+/*****
+****** write 120/144Hz gamma
+*****/
+void nubia_write_panel_60_90_gamma(struct mipi_dsi_device *dsi)
+{
+	u8 cmd1[1] = {0x00};
+	mipi_dsi_dcs_write(dsi, 0xB0, cmd1, sizeof(cmd1));
+	mipi_dsi_dcs_write(dsi, 0xC7, gamma6,sizeof(gamma6));
+	mipi_dsi_dcs_write(dsi, 0xC8, gamma7, sizeof(gamma7));
+	mipi_dsi_dcs_write(dsi, 0xC9, gamma8, sizeof(gamma8));
+	mipi_dsi_dcs_write(dsi, 0xCA, gamma9, sizeof(gamma9));
+	mipi_dsi_dcs_write(dsi, 0xCB, gamma10, sizeof(gamma10));
+}
+
+/*****
+****** write 60/90Hz gamma
+*****/
+void nubia_write_panel_120_144_gamma(struct mipi_dsi_device *dsi)
+{
+	u8 cmd1[1] = {0x00};
+	mipi_dsi_dcs_write(dsi, 0xB0, cmd1, sizeof(cmd1));
+	mipi_dsi_dcs_write(dsi, 0xC7, gamma1,sizeof(gamma1));
+	mipi_dsi_dcs_write(dsi, 0xC8, gamma2, sizeof(gamma2));
+	mipi_dsi_dcs_write(dsi, 0xC9, gamma3, sizeof(gamma3));
+	mipi_dsi_dcs_write(dsi, 0xCA, gamma4, sizeof(gamma4));
+	mipi_dsi_dcs_write(dsi, 0xCB, gamma5, sizeof(gamma5));
+}
+#endif
 static void dsi_panel_update_util(struct dsi_panel *panel,
 				  struct device_node *parser_node)
 {
@@ -4183,6 +4262,10 @@ exit:
 int dsi_panel_set_nolp(struct dsi_panel *panel)
 {
 	int rc = 0;
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	struct mipi_dsi_device *dsi;
+	u32 cur_fps;
+#endif
 
 	if (!panel) {
 		DSI_ERR("invalid params\n");
@@ -4207,6 +4290,18 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 		       panel->name, rc);
 
 #ifdef CONFIG_MACH_NUBIA_NX659J
+	cur_fps = panel->cur_mode->timing.refresh_rate;
+	if (is_66451_panel) {
+		dsi = &panel->mipi_device;
+		/* delay by 20ms, if the time is too short, it might affect aod */
+		msleep(20);
+		nubia_write_panel_osc_timing(cur_fps, dsi);
+		pr_debug("exit aod mode,fps value = %d", cur_fps);
+
+		/* clear aod mode brightness */
+		dsi_panel_set_backlight(panel, 0);
+	}
+
 	dsi_panel_notifier(MSM_DRM_AOD_EVENT, MSM_DRM_MAJOR_AOD_OFF);
 #endif
 
@@ -4537,12 +4632,34 @@ int dsi_panel_post_switch(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	struct mipi_dsi_device *dsi;
+	u32 cur_fps;
+#endif
+
 	if (!panel) {
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
 
 	mutex_lock(&panel->panel_lock);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	dsi = &panel->mipi_device;
+	cur_fps = panel->cur_mode->timing.refresh_rate;
+	pr_debug("%s cur_fps = %d: \n", __func__, cur_fps);
+
+	if (!is_66451_panel && (cur_fps == 144)) {
+		pr_debug("%s this panel un supported 144HZ, cur_fps = %d: \n", __func__, cur_fps);
+		return -EINVAL;
+	}
+
+	nubia_write_panel_osc_timing(cur_fps, dsi);
+	if ((cur_fps == 60) || (cur_fps == 62) || (cur_fps == 90))
+		nubia_write_panel_60_90_gamma(dsi);
+	else
+		nubia_write_panel_120_144_gamma(dsi);
+#endif
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_TIMING_SWITCH);
 	if (rc)
@@ -4557,12 +4674,34 @@ int dsi_panel_enable(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	struct mipi_dsi_device *dsi;
+	u32 cur_fps = 0;
+#endif
+
 	if (!panel) {
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
 
 	mutex_lock(&panel->panel_lock);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	enable_flag = 1;
+#endif
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	dsi = &panel->mipi_device;
+	if (is_66451_panel) {
+		cur_fps = panel->cur_mode->timing.refresh_rate;
+		nubia_write_panel_osc_timing(cur_fps, dsi);
+		pr_debug("%s: current fps = %d \n", __func__, cur_fps);
+		if (cur_fps == 90 || cur_fps == 60)
+			nubia_write_panel_60_90_gamma(dsi);
+		else
+			nubia_write_panel_120_144_gamma(dsi);
+	}
+#endif
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON);
 	if (rc)
@@ -4629,6 +4768,10 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	}
 
 	mutex_lock(&panel->panel_lock);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	enable_flag = 0;
+#endif
 
 	/* Avoid sending panel off commands when ESD recovery is underway */
 	if (!atomic_read(&panel->esd_recovery_pending)) {
