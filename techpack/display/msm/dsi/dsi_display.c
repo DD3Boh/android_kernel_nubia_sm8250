@@ -2875,6 +2875,74 @@ static int dsi_host_detach(struct mipi_dsi_host *host,
 	return 0;
 }
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+ssize_t dsi_panel_transfer_cmd(struct mipi_dsi_host *host,
+				const struct mipi_dsi_msg *msg)
+{
+	struct dsi_display *display;
+	int rc = 0, ret = 0;
+	int ctrl_idx;
+	u32 cmd_flags;
+
+	if (!host || !msg) {
+		pr_err("[%s] dsi_host_transfer Invalid params\n", __FUNCTION__);
+		return 0;
+	}
+	display = to_dsi_display(host);
+
+	/* Avoid sending DCS commands when ESD recovery is pending */
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("ESD recovery pending\n");
+		return 0;
+	}
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle, DSI_ALL_CLKS, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable all DSI clocks, rc=%d\n", display->name, rc);
+		goto error;
+	}
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {	
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n", display->name, rc);
+		goto error_disable_clks;
+	}
+
+	if (display->tx_cmd_buf == NULL) {
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
+			goto error_disable_cmd_engine;
+		}
+	}
+
+	ctrl_idx = (msg->flags & MIPI_DSI_MSG_UNICAST) ? msg->ctrl : 0;
+
+	cmd_flags = DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ | DSI_CTRL_CMD_CUSTOM_DMA_SCHED | DSI_CTRL_CMD_LAST_COMMAND;
+	rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg, &cmd_flags);
+	if (rc <= 0) {
+	pr_err("[%s] cmd transfer failed, rc=%d\n",
+			display->name, rc);
+	goto error_disable_cmd_engine;
+	}
+
+	error_disable_cmd_engine:
+	ret = dsi_display_cmd_engine_disable(display);
+	if (ret) {
+		pr_err("[%s]failed to disable DSI cmd engine, rc=%d\n", display->name, ret);
+	}
+
+error_disable_clks:
+	ret = dsi_display_clk_ctrl(display->dsi_clk_handle, DSI_ALL_CLKS, DSI_CLK_OFF);
+	if (ret) {
+	pr_err("[%s] failed to disable all DSI clocks, rc=%d\n", display->name, ret);
+	}
+
+error:
+	return rc;
+}
+#endif
+
 static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {

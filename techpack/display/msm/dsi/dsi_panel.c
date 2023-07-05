@@ -4499,6 +4499,31 @@ int dsi_panel_switch(struct dsi_panel *panel)
 	return rc;
 }
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+extern ssize_t dsi_panel_transfer_cmd(struct mipi_dsi_host *host, const struct mipi_dsi_msg *msg);
+
+int dsi_panel_read_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len)
+{
+	int rc = 0;
+	struct mipi_dsi_msg msg = {
+		.channel = dsi->channel,
+		.type = MIPI_DSI_DCS_READ,
+		.tx_buf = &cmd,
+		.tx_len = 1,
+		.rx_buf = buf,
+		.rx_len = len
+	};
+	msg.flags |= MIPI_DSI_MSG_LASTCOMMAND | MIPI_DSI_MSG_USE_LPM;
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_LPM)
+		msg.flags |= MIPI_DSI_MSG_USE_LPM;
+	msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+
+	rc = dsi_panel_transfer_cmd(dsi->host, &msg);
+	return rc;
+}
+#endif
+
 int dsi_panel_post_switch(struct dsi_panel *panel)
 {
 	int rc = 0;
