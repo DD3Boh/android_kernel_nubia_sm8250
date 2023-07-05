@@ -17,6 +17,10 @@
 
 #define DEBUG_NAME "drm_dp"
 
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+extern struct _select_sde_edid_info select_sde_edid_info;
+#endif
+
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
 {
 	int rc = 0;
@@ -365,6 +369,9 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 	if (!hdisplay || !vdisplay || !vrefresh)
 		goto clear;
 
+#ifdef CONFIG_NUBIA_HDMI_FEATURE
+	select_sde_edid_info.node_control = true;
+#endif
 	debug->dp_debug.debug_en = true;
 	debug->dp_debug.hdisplay = hdisplay;
 	debug->dp_debug.vdisplay = vdisplay;
