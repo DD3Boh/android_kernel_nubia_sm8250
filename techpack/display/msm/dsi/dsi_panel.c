@@ -1892,6 +1892,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-post-mode-switch-on-command",
 	"qcom,mdss-dsi-qsync-on-commands",
 	"qcom,mdss-dsi-qsync-off-commands",
+	"nubia,mdss-dsi-hbm-command-on",
+	"nubia,mdss-dsi-hbm-command-off",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1918,6 +1920,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-post-mode-switch-on-command-state",
 	"qcom,mdss-dsi-qsync-on-commands-state",
 	"qcom,mdss-dsi-qsync-off-commands-state",
+	"nubia,mdss-dsi-hbm-command-on-state",
+	"nubia,mdss-dsi-hbm-command-off-state",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
