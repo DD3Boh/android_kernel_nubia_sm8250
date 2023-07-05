@@ -16,6 +16,10 @@
 #include "dsi_parser.h"
 #include "sde_dbg.h"
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+#include <linux/msm_drm_notify.h>
+#endif
+
 /**
  * topology is currently defined by a set of following 3 values:
  * 1. num of layer mixers
@@ -95,6 +99,56 @@ static char dsi_dsc_rc_range_max_qp_1_1_scr1[][15] = {
  */
 static char dsi_dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 		-8, -10, -10, -12, -12, -12, -12};
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+static BLOCKING_NOTIFIER_HEAD(msm_drm_panel_notifier_list);
+/*
+ * msm_drm_panel_register_client - register a client notifier
+ * @nb: notifier block to callback on events
+ *
+ * This function registers a notifier callback function
+ * to msm_drm_notifier_list, which would be called when
+ * received unblank/power down event.
+ */
+int msm_drm_panel_register_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&msm_drm_panel_notifier_list, nb);
+}
+
+/*
+ * msm_drm_panel_unregister_client - unregister a client notifier
+ * @nb: notifier block to callback on events
+ *
+ * This function unregisters the callback function from
+ * msm_drm_notifier_list.
+ */
+int msm_drm_panel_unregister_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&msm_drm_panel_notifier_list, nb);
+}
+
+/*
+ * msm_drm_panel_notifier_call_chain - notify clients of drm_events
+ * @val: event MSM_DRM_EARLY_EVENT_BLANK or MSM_DRM_EVENT_BLANK
+ * @v: notifier data, inculde display id and display blank
+ *     event(unblank or power down).
+ */
+static int msm_drm_panel_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&msm_drm_panel_notifier_list, val, v);
+}
+
+void dsi_panel_notifier(int event, unsigned long data)
+{
+	struct msm_drm_panel_notifier notifier_data;
+	int blank = data;
+
+	notifier_data.data = &blank;
+	notifier_data.id = 0;
+	msm_drm_panel_notifier_call_chain(event,
+                               &notifier_data);
+}
+#endif
 
 int dsi_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc, char *buf,
 				int pps_id)
@@ -452,6 +506,10 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	dsi_panel_notifier(MSM_DRM_SWITCH_EARLY_EVENT_BLANK,MSM_DRM_MAJOR_BLANK_UNBLANK);
+#endif
+
 	rc = dsi_pwr_enable_regulator(&panel->power_info, true);
 	if (rc) {
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
@@ -492,6 +550,10 @@ exit:
 static int dsi_panel_power_off(struct dsi_panel *panel)
 {
 	int rc = 0;
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	dsi_panel_notifier(MSM_DRM_SWITCH_EARLY_EVENT_BLANK,MSM_DRM_MAJOR_POWERDOWN);
+#endif
 
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
