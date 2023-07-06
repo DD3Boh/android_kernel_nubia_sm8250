@@ -4346,6 +4346,10 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmd, rc=%d\n",
 		       panel->name, rc);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	dsi_panel_notifier(MSM_DRM_AOD_EVENT, MSM_DRM_MAJOR_AOD_ON);
+#endif
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4377,6 +4381,11 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	struct mipi_dsi_device *dsi;
+	u32 cur_fps;
+#endif
+
 	if (!panel) {
 		DSI_ERR("invalid params\n");
 		return -EINVAL;
@@ -4398,6 +4407,22 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_NOLP cmd, rc=%d\n",
 		       panel->name, rc);
+
+#ifdef CONFIG_MACH_NUBIA_NX659J
+	cur_fps = panel->cur_mode->timing.refresh_rate;
+	if (is_66451_panel) {
+		dsi = &panel->mipi_device;
+		/* delay by 20ms, if the time is too short, it might affect aod */
+		msleep(20);
+		nubia_write_panel_osc_timing(cur_fps, dsi);
+		pr_debug("exit aod mode,fps value = %d", cur_fps);
+
+		/* clear aod mode brightness */
+		dsi_panel_set_backlight(panel, 0);
+
+		dsi_panel_notifier(MSM_DRM_AOD_EVENT, MSM_DRM_MAJOR_AOD_OFF);
+	}
+#endif
 
 exit:
 	mutex_unlock(&panel->panel_lock);
