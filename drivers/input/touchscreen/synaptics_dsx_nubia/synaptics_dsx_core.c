@@ -31,6 +31,7 @@
  * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
  * DOLLARS.
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -74,9 +75,11 @@
 #define F12_DATA_15_WORKAROUND
 
 #define IGNORE_FN_INIT_FAILURE
+/*
 #define FB_READY_RESET
 #define FB_READY_WAIT_MS 100
 #define FB_READY_TIMEOUT_S 30
+*/
 #ifdef SYNA_TDDI
 #define TDDI_LPWG_WAIT_US 10
 #endif
@@ -121,19 +124,39 @@
 #define F12_WAKEUP_GESTURE_MODE 0x02
 #define F12_UDG_DETECT 0x0f
 
+struct synaptics_rmi4_data *g_rmi4_data;
+
 static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
 		bool *was_in_bl_mode);
 static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		bool rebuild);
-static int synaptics_rmi4_dsi_panel_notifier_cb(struct notifier_block *self,
+
+#ifdef CONFIG_FB
+static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data);
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #ifndef CONFIG_FB
 #define USE_EARLYSUSPEND
 #endif
+#endif
+
+#ifdef NUBIA_CONTROL_RESUME_SUSPEND
+static void synaptics_nubiactl_resume(struct synaptics_rmi4_data *rmi4_data);
+static int synaptics_nubia_shortcuts_input(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type);
+static int synaptics_nubia_fp_input(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type);
+static int synaptics_nubia_report_handler(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type);
+#endif
+
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+static int nubia_synap_write_gamereg(struct synaptics_rmi4_data *rmi4_data);
+static int nubia_synap_read_gamereg(struct synaptics_rmi4_data *rmi4_data);
 #endif
 
 #ifdef USE_EARLYSUSPEND
@@ -145,8 +168,6 @@ static int synaptics_rmi4_late_resume(struct early_suspend *h);
 static int synaptics_rmi4_suspend(struct device *dev);
 
 static int synaptics_rmi4_resume(struct device *dev);
-
-static void synaptics_rmi4_defer_probe(struct work_struct *work);
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -182,6 +203,13 @@ static ssize_t synaptics_rmi4_synad_pid_store(struct device *dev,
 
 static ssize_t synaptics_rmi4_virtual_key_map_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf);
+
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+static inline ssize_t synaptics_nubia_gamemode_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+static inline ssize_t synaptics_nubia_gamemode_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+#endif
 
 struct synaptics_rmi4_f01_device_status {
 	union {
@@ -678,6 +706,95 @@ static struct synaptics_rmi4_exp_fn_data exp_data;
 
 static struct synaptics_dsx_button_map *vir_button_map;
 
+#ifdef NUBIA_SYNAPTICS_FINGER_WAKE_NODE
+static ssize_t synaptics_nubia_fp_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", g_rmi4_data->enable_gesture);
+}
+
+static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t size)
+{
+	int en;
+	unsigned int input;
+	sscanf(buf, "%d", &en);
+
+	input = en;
+
+#ifndef NUBIA_CONTROL_RESUME_SUSPEND
+	g_rmi4_data->enable_gesture = input;
+
+	pr_info("%s.enable_gesture [%d]", __func__, g_rmi4_data->enable_gesture);
+
+	if (!g_rmi4_data->enable_gesture) {
+		pr_err("%s gesture [%d], now to resume tp", __func__, g_rmi4_data->enable_gesture);
+		schedule_work(&g_rmi4_data->resume_work);
+		g_rmi4_data->fb_ready = true;
+	}
+#else
+	pr_info("%s.fp_mode [%d]", __func__, en);
+	switch (en) {
+		case FP_GESTURE_OFF:
+			g_rmi4_data->tp_mode_state &= FP_EXIT;
+			if (g_rmi4_data->gesture_flag) {
+				ts_err(".double_click exist--->no suspend<---");
+				break;
+			}
+			g_rmi4_data->enable_gesture = 0;
+			g_rmi4_data->normal_gesture_flag = false;
+			break;
+		case FP_GESTURE_ON:
+			g_rmi4_data->tp_mode_state |= FP_ENTER;
+			g_rmi4_data->enable_gesture = 1;
+			g_rmi4_data->normal_gesture_flag = false;
+			break;
+		case NORMAL_GESTURE:
+			g_rmi4_data->tp_mode_state |= FP_ENTER;
+			g_rmi4_data->enable_gesture = 1;
+			g_rmi4_data->normal_gesture_flag = true;
+			break;
+		}
+	synaptics_nubiactl_resume(g_rmi4_data);
+#endif
+	return size;
+}
+
+static struct kobject *tp_kobj = NULL;
+static struct kobj_attribute tp_node_attrs[] = {
+	__ATTR(fp_mode, 0664, synaptics_nubia_fp_mode_show,
+						synaptics_nubia_fp_mode_store),
+};
+static int synaptics_nubia_sysfs_node(void)
+{
+	int retval = 0;
+	int attr_count = 0;
+
+	pr_info("%s:sys/kernel/tp_node ->create start\n", __func__);
+
+	tp_kobj = kobject_create_and_add("tp_node", kernel_kobj);
+	if (!tp_kobj) {
+		pr_err("%s: failed to create and add kobject\n", __func__);
+		return -ENOMEM;
+	}
+	for (attr_count = 0; attr_count < ARRAY_SIZE(tp_node_attrs); attr_count++) {
+		retval = sysfs_create_file(tp_kobj, &tp_node_attrs[attr_count].attr);
+		if (retval < 0) {
+			pr_err("%s: failed to create sysfs attributes\n", __func__);
+			goto err_sys_creat;
+		}
+	}
+
+	pr_info("%s: sys/kernel/tp_node ->create complete\n", __func__);
+
+	return retval;
+err_sys_creat:
+	for (--attr_count; attr_count >= 0; attr_count--)
+		sysfs_remove_file(tp_kobj, &tp_node_attrs[attr_count].attr);
+	kobject_put(tp_kobj);
+	return retval;
+}
+#endif
 #ifdef USE_DATA_SERVER
 static pid_t synad_pid;
 static struct task_struct *synad_task;
@@ -711,7 +828,14 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_synad_pid_store),
 #endif
+
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+	__ATTR(gamemode, (S_IRUGO | S_IWUSR | S_IWGRP),
+			synaptics_nubia_gamemode_show,
+			synaptics_nubia_gamemode_store),
+#endif
 };
+
 
 static struct kobj_attribute virtual_key_map_attr = {
 	.attr = {
@@ -873,7 +997,7 @@ static ssize_t synaptics_rmi4_wake_gesture_show(struct device *dev,
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
 	return snprintf(buf, PAGE_SIZE, "%u\n",
-			rmi4_data->enable_wakeup_gesture);
+			rmi4_data->enable_gesture);
 }
 
 static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
@@ -882,13 +1006,18 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
 	unsigned int input;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
-	if (kstrtouint(buf, 10, &input) != 1)
+	if (sscanf(buf, "%u", &input) != 1)
 		return -EINVAL;
 
 	input = input > 0 ? 1 : 0;
 
-	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
-		rmi4_data->enable_wakeup_gesture = input;
+	if (rmi4_data->suspend == false){
+		if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture) {
+			rmi4_data->gesture_flag = input;
+			rmi4_data->enable_gesture = input;
+		}
+	pr_err("%s enable_gesture=%d\n",__func__, input);
+	}
 
 	return count;
 }
@@ -910,6 +1039,111 @@ static ssize_t synaptics_rmi4_synad_pid_store(struct device *dev,
 			return -EINVAL;
 	}
 
+	return count;
+}
+#endif
+
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+u8 reg_141 = 0x04;
+u8 reg_026 = 0x01;
+u8 reg_136[] = {0x50,0x00,0x07,0x00,0x00,0x19,0x12};
+u8 reg_127[] = {0x83,0x2e,0x00,0x0e,0x00,//5
+	0x00,0x00,0x04,0x00,0x01,//10
+	0x24,0x83,0x2e,0x00,0x0e,//15
+	0x00,0x06,0x00,0x09,0x00,//20
+	0x02,0x24,0x83,0x2e,0x00,//25
+	0x0d,0x00,0x0c,0x00,0x05,//30
+	0x00,0x01,0x22,0x83,0x2e,//35
+	0x00,0x0d,0x00,0x27,0x00,//40
+	0x0d,0x00,0x02,0x23,0x03,//45
+	0x19,0x00,0x0e,0x00,0x00,//50
+	0x00,0x04,0x00,0x01,0x24,//55
+	0x03,0x19,0x00,0x0e,0x00,//60
+	0x06,0x00,0x09,0x00,0x02,//65
+	0x24,0x03,0x19,0x00,0x0D,//70
+	0x00,0x0C,0x00,0x05,0x00,//75
+	0x01,0x22,0x03};//78
+
+static int nubia_synap_write_gamereg(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval=0;
+	retval = synaptics_rmi4_reg_write(rmi4_data, 0x0026, &reg_026, sizeof(reg_026));
+	usleep_range(20000,25000);
+	retval = synaptics_rmi4_reg_write(rmi4_data, 0x0127, &reg_127[0], sizeof(reg_127));
+	retval = synaptics_rmi4_reg_write(rmi4_data, 0x0136, &reg_136[0], sizeof(reg_136));
+	usleep_range(20000,25000);
+	retval = synaptics_rmi4_reg_write(rmi4_data, 0x0141, &reg_141 , sizeof(reg_141));
+	return retval;
+}
+
+static int nubia_synap_read_gamereg(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval=0;
+	int i = 0;
+	u8 game_reg127[78];
+	u8 game_reg136[7];
+	retval = synaptics_rmi4_reg_read(rmi4_data, 0x0127, game_reg127,sizeof(game_reg127));
+	for (i = 0; i < sizeof(game_reg127); i++) {
+		if(reg_127[i]!=game_reg127[i]) {
+			return -1;
+		}
+	}
+	retval = synaptics_rmi4_reg_read(rmi4_data, 0x0136, game_reg136,sizeof(game_reg136));
+	for (i = 0; i < sizeof(game_reg136); i++) {
+		if (reg_136[i] != game_reg136[i]) {
+			return -1;
+		}
+	}
+	return retval;
+}
+
+static int nubia_synap_gamemode_enable(struct synaptics_rmi4_data *rmi4_data, bool on)
+{
+	int retval=0;
+	int i =0;
+
+	if (on&&!(rmi4_data->game_on_flag)) {
+		mutex_lock(&exp_data.mutex);
+		do {
+			retval=nubia_synap_write_gamereg(rmi4_data);
+			retval=nubia_synap_read_gamereg(rmi4_data);
+			i++;
+		} while(retval<0&&i<7);
+		mutex_unlock(&exp_data.mutex);
+	}
+	if (!on && rmi4_data->game_on_flag)
+		retval = synaptics_rmi4_reg_write(rmi4_data, 0x0026, &reg_026, sizeof(reg_026));
+
+	if(retval<0)
+		return retval;
+	rmi4_data->game_on_flag = on;
+	return retval;
+}
+
+static inline ssize_t synaptics_nubia_gamemode_show(struct device *dev,
+                struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u %u\n",
+			rmi4_data->game_mode, rmi4_data->game_on_flag);
+}
+
+static inline ssize_t synaptics_nubia_gamemode_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	input = input > 0 ? 1 : 0;
+	pr_info("%s: ready to change for %sHz", __func__, input?"240":"120");
+	if (rmi4_data->suspend == false) {
+		rmi4_data->game_mode = input;
+		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
+	}
 	return count;
 }
 #endif
@@ -1075,7 +1309,7 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 
 	extra_data = (struct synaptics_rmi4_f11_extra_data *)fhandler->extra;
 
-	if (rmi4_data->suspend && rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->suspend && rmi4_data->enable_gesture) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				data_addr + extra_data->data38_offset,
 				&detected_gestures,
@@ -1200,6 +1434,148 @@ exit:
 	return touch_count;
 }
 
+#ifdef NUBIA_TOUCH_SYNAPTICS
+static void synaptics_nubiaForcedResume()
+{
+	while ((g_rmi4_data->fp_event_count < FORCED_RESUME) &&
+			g_rmi4_data->fp_down_input_flag) {
+		g_rmi4_data->fp_event_count ++;
+		usleep_range(5000,6000);
+	}
+	if (!g_rmi4_data->fp_down_input_flag) {
+		cancel_delayed_work(&g_rmi4_data->forced_resume_dw);
+		return;
+	} else if (g_rmi4_data->fp_event_count >= FORCED_RESUME) {
+		ts_err(" max fp_count-->time out<---");
+		synaptics_rmi4_free_fingers(g_rmi4_data);
+		g_rmi4_data->fp_down_input_flag = false;
+			input_sync(g_rmi4_data->input_dev);
+			input_report_key(g_rmi4_data->input_dev, KEY_F12, 1);
+			input_sync(g_rmi4_data->input_dev);
+			input_report_key(g_rmi4_data->input_dev, KEY_F12, 0);
+			input_sync(g_rmi4_data->input_dev);
+		cancel_delayed_work(&g_rmi4_data->forced_resume_dw);
+		return;
+	}
+	cancel_delayed_work(&g_rmi4_data->forced_resume_dw);
+	return;
+}
+
+static int synaptics_nubia_report_handler(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type)
+{
+	switch (gesture_type) {
+		case FP_DOWN_DATA:
+			if (!rmi4_data->fp_down_input_flag) {
+				input_report_key(rmi4_data->input_dev, KEY_F11, 1);
+				input_sync(rmi4_data->input_dev);
+				input_report_key(rmi4_data->input_dev, KEY_F11, 0);
+				input_sync(rmi4_data->input_dev);
+				rmi4_data->fp_down_input_flag = true;
+				rmi4_data->fp_event_count = 0;
+				schedule_delayed_work(&rmi4_data->forced_resume_dw,
+									msecs_to_jiffies(20));
+				ts_err("---FP_DOWN_DATA-->[%d] flag[FP_DOWN]\n",
+				rmi4_data->gesture_detection[0]);
+			}
+			/* input nubia fp X & nubia fp Y start */
+			rmi4_data->fp_event_count = 0;
+			input_mt_slot(rmi4_data->input_dev, 0);
+			input_mt_report_slot_state(rmi4_data->input_dev,
+					MT_TOOL_FINGER, 1);
+			input_report_key(rmi4_data->input_dev,
+					BTN_TOUCH, true);
+			input_report_key(rmi4_data->input_dev,
+					BTN_TOOL_FINGER, 1);
+			input_report_abs(rmi4_data->input_dev,
+					ABS_MT_POSITION_X, nubia_x);
+			input_report_abs(rmi4_data->input_dev,
+					ABS_MT_POSITION_Y, nubia_y);
+			input_sync(rmi4_data->input_dev);
+			/* input nubia fp X & nubia fp Y end */
+			break;
+		case FP_UP_DATA:
+			input_mt_slot(rmi4_data->input_dev, 0);
+			input_mt_report_slot_state(rmi4_data->input_dev,
+					MT_TOOL_FINGER, false);
+			input_report_key(rmi4_data->input_dev,
+					BTN_TOUCH, false);
+			input_report_key(rmi4_data->input_dev,
+					BTN_TOOL_FINGER, 0);
+			input_sync(rmi4_data->input_dev);
+			input_report_key(rmi4_data->input_dev, KEY_F12, 1);
+			input_sync(rmi4_data->input_dev);
+			input_report_key(rmi4_data->input_dev, KEY_F12, 0);
+			input_sync(rmi4_data->input_dev);
+			rmi4_data->fp_down_input_flag = false;
+			ts_err("---FP_UP_DATA---->[%d] flag[FP_UP]\n",
+			rmi4_data->gesture_detection[0]);
+			if (rmi4_data->shortcuts_flag) {
+				rmi4_data->shortcuts_flag == false;
+				rmi4_data->en_fpmode = true;
+				synaptics_nubiactl_resume(rmi4_data);
+				ts_err("detect fp_up---->resume");
+			}
+			break;
+		default:break;
+	}
+	return 0;
+}
+static int synaptics_nubia_fp_input(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type)
+{
+	int fp_x = 0;
+	int fp_y = 0;
+	rmi4_data->shortcuts_flag = false;
+	if ((LEFT_X_VALUE < nubia_x) && (nubia_x < RIGHT_X_VALUE)) {
+		if ((UP_Y_VALUE < nubia_y) && (nubia_y < DOWN_Y_VALUE)) {
+			if (((rmi4_data->nubia_detection[4] < NUBIA_WX) ||
+				(rmi4_data->nubia_detection[5] < NUBIA_WY)) &&
+					(!rmi4_data->fp_down_input_flag)) {
+				ts_err(" finger area---->over-limit<---");
+				return 0;
+			}
+			fp_x = nubia_x;
+			fp_y = nubia_y;
+			synaptics_nubia_report_handler(rmi4_data, fp_x, fp_y, gesture_type);
+		}
+	} else if ((LEFT_FUZZY_RANGE < nubia_x) && (nubia_x < LEFT_X_VALUE)) {
+		if ((UP_FUZZY_RANGE<nubia_y) && (nubia_y < DONW_FUZZY_RANGE))
+			goto over_limit;
+	} else if ((RIGHT_X_VALUE < nubia_x) && (nubia_x < RIGHT_FUZZY_RANGE)) {
+		if ((UP_FUZZY_RANGE < nubia_y) && (nubia_y < DONW_FUZZY_RANGE))
+			goto over_limit;
+	} else if ((LEFT_X_VALUE <= nubia_x) && (nubia_x <= RIGHT_X_VALUE)) {
+		if ((UP_FUZZY_RANGE <= nubia_y) && (nubia_y <= UP_Y_VALUE))
+			goto over_limit;
+	} else if ((LEFT_X_VALUE <= nubia_x) && (nubia_x <= RIGHT_X_VALUE)) {
+		if ((DOWN_Y_VALUE <= nubia_y) && (nubia_y <= DONW_FUZZY_RANGE))
+			goto over_limit;
+	}
+	return 0;
+over_limit:
+	synaptics_rmi4_free_fingers(rmi4_data);
+	ts_err(" finger area---->over-limit<---synaptics_nubia_fp_input F12");
+
+	rmi4_data->fp_down_input_flag = false;
+	input_sync(rmi4_data->input_dev);
+	input_report_key(rmi4_data->input_dev, KEY_F12, 1);
+	input_sync(rmi4_data->input_dev);
+	input_report_key(rmi4_data->input_dev, KEY_F12, 0);
+	input_sync(rmi4_data->input_dev);
+	return 0;
+}
+
+static int synaptics_nubia_shortcuts_input(struct synaptics_rmi4_data *rmi4_data,
+		int nubia_x, int nubia_y, unsigned char gesture_type)
+{
+	rmi4_data->shortcuts_flag = true;
+	ts_err(" synaptics_nubia_shortcuts_input ");
+	synaptics_nubia_report_handler(rmi4_data, nubia_x, nubia_y, gesture_type);
+	return 0;
+}
+#endif
+
 static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		struct synaptics_rmi4_fn *fhandler)
 {
@@ -1217,6 +1593,10 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int wx;
 	int wy;
 	int temp;
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	int nubia_x = 0;
+	int nubia_y = 0;
+#endif
 #if defined(REPORT_2D_PRESSURE) || defined(F51_DISCRETE_FORCE)
 	int pressure;
 #endif
@@ -1243,7 +1623,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 	size_of_2d_data = sizeof(struct synaptics_rmi4_f12_finger_data);
 
-	if (rmi4_data->suspend && rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->suspend && rmi4_data->enable_gesture) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				data_addr + extra_data->data4_offset,
 				rmi4_data->gesture_detection,
@@ -1253,6 +1633,28 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 
 		gesture_type = rmi4_data->gesture_detection[0];
 
+#ifdef NUBIA_TOUCH_SYNAPTICS
+		retval = synaptics_rmi4_reg_read(rmi4_data, NUBIA_GESTURE_ADDR,
+				rmi4_data->nubia_detection,
+				sizeof(rmi4_data->nubia_detection));
+
+		nubia_x = rmi4_data->nubia_detection[0] |(rmi4_data->nubia_detection[1] << 8);
+		nubia_y = rmi4_data->nubia_detection[2] |(rmi4_data->nubia_detection[3] << 8);
+
+		if (gesture_type == DOUBLE_CLICK && rmi4_data->gesture_flag == true) {
+			input_report_key(rmi4_data->input_dev, KEY_F10, 1);
+			input_sync(rmi4_data->input_dev);
+			input_report_key(rmi4_data->input_dev, KEY_F10, 0);
+			input_sync(rmi4_data->input_dev);
+			ts_err(" DOUBLE_CLICK[%d]\n",
+			rmi4_data->gesture_detection[0]);
+		}
+
+		if (!(rmi4_data->normal_gesture_flag) && (rmi4_data->tp_mode_state & FP_ENTER))
+			synaptics_nubia_fp_input(rmi4_data, nubia_x, nubia_y, gesture_type);
+		if (!(rmi4_data->tp_mode_state & FP_ENTER) && rmi4_data->fp_down_input_flag)
+			synaptics_nubia_shortcuts_input(rmi4_data, nubia_x, nubia_y, gesture_type);
+#else
 		if (gesture_type && gesture_type != F12_UDG_DETECT) {
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 1);
 			input_sync(rmi4_data->input_dev);
@@ -1261,6 +1663,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			/* synaptics_rmi4_wakeup_gesture(rmi4_data, false); */
 			/* rmi4_data->suspend = false; */
 		}
+#endif
 
 		return 0;
 	}
@@ -1518,6 +1921,8 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	input_sync(rmi4_data->input_dev);
 
 	mutex_unlock(&(rmi4_data->rmi4_report_mutex));
+	if (touch_count == 0)
+		synaptics_rmi4_free_fingers(rmi4_data);
 
 	return touch_count;
 }
@@ -1719,7 +2124,7 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data,
 		}
 	}
 	if (status.unconfigured && !status.flash_prog) {
-		pr_notice("%s: spontaneous reset detected\n", __func__);
+		pr_notice("%s: spontaneous reset detected", __func__);
 		retval = synaptics_rmi4_reinit_device(rmi4_data);
 		if (retval < 0) {
 			dev_err(rmi4_data->pdev->dev.parent,
@@ -3295,11 +3700,12 @@ flash_prog_mode:
 		}
 	}
 
+/*
 	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
-		rmi4_data->enable_wakeup_gesture = WAKEUP_GESTURE;
+		rmi4_data->enable_wakeup_gesture = true;
 	else
 		rmi4_data->enable_wakeup_gesture = false;
-
+*/
 	synaptics_rmi4_set_configured(rmi4_data);
 
 	return 0;
@@ -3424,6 +3830,14 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 		set_bit(KEY_WAKEUP, rmi4_data->input_dev->keybit);
 		input_set_capability(rmi4_data->input_dev, EV_KEY, KEY_WAKEUP);
 	}
+
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	input_set_capability(rmi4_data->input_dev, EV_KEY, KEY_F9);
+	input_set_capability(rmi4_data->input_dev, EV_KEY, KEY_F10);
+	input_set_capability(rmi4_data->input_dev, EV_KEY, KEY_F11);
+	input_set_capability(rmi4_data->input_dev, EV_KEY, KEY_F12);
+#endif
+	return;
 }
 
 static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
@@ -3557,19 +3971,8 @@ static int synaptics_rmi4_set_gpio(struct synaptics_rmi4_data *rmi4_data)
 		goto err_gpio_irq;
 	}
 
-	if (bdata->power_gpio >= 0) {
-		retval = synaptics_rmi4_gpio_setup(
-				bdata->power_gpio,
-				true, 1, !bdata->power_on_state);
-		if (retval < 0) {
-			dev_err(rmi4_data->pdev->dev.parent,
-					"%s: Failed to configure power GPIO\n",
-					__func__);
-			goto err_gpio_power;
-		}
-	}
-
 	if (bdata->reset_gpio >= 0) {
+		pr_info("%s:start power on reset\n", __func__);
 		retval = synaptics_rmi4_gpio_setup(
 				bdata->reset_gpio,
 				true, 1, !bdata->reset_on_state);
@@ -3577,29 +3980,23 @@ static int synaptics_rmi4_set_gpio(struct synaptics_rmi4_data *rmi4_data)
 			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: Failed to configure reset GPIO\n",
 					__func__);
-			goto err_gpio_reset;
+			goto err_gpio_power;
 		}
-	}
-
-	if (bdata->power_gpio >= 0) {
-		gpio_set_value(bdata->power_gpio, bdata->power_on_state);
-		msleep(bdata->power_delay_ms);
+		msleep(5);
 	}
 
 	if (bdata->reset_gpio >= 0) {
 		gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
-		msleep(bdata->reset_active_ms);
+		msleep(5);
 		gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
-		msleep(bdata->reset_delay_ms);
+		msleep(50);
 	}
+
 
 	return 0;
 
-err_gpio_reset:
-	if (bdata->power_gpio >= 0)
-		synaptics_rmi4_gpio_setup(bdata->power_gpio, false, 0, 0);
-
 err_gpio_power:
+	pr_info("%s:start free irq\n", __func__);
 	synaptics_rmi4_gpio_setup(bdata->irq_gpio, false, 0, 0);
 
 err_gpio_irq:
@@ -3657,7 +4054,6 @@ err_pinctrl_get:
 	return retval;
 }
 
-
 static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 		bool get)
 {
@@ -3673,6 +4069,7 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 	if ((bdata->pwr_reg_name != NULL) && (*bdata->pwr_reg_name != 0)) {
 		rmi4_data->pwr_reg = regulator_get(rmi4_data->pdev->dev.parent,
 				bdata->pwr_reg_name);
+		g_rmi4_data->pwr_reg = rmi4_data->pwr_reg;
 		if (IS_ERR(rmi4_data->pwr_reg)) {
 			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: Failed to get power regulator\n",
@@ -3681,7 +4078,31 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 			goto regulator_put;
 		}
 	}
+	pr_err("[TP]%s: synaptics pwr_reg_name = %s\n", __func__, bdata->pwr_reg_name );
+	if ((bdata->bus_reg_name != NULL) && (*bdata->bus_reg_name != 0)) {
+		rmi4_data->bus_reg = regulator_get(rmi4_data->pdev->dev.parent,
+				bdata->bus_reg_name);
+		g_rmi4_data->bus_reg = rmi4_data->bus_reg;
+		if (IS_ERR(rmi4_data->bus_reg)) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to get bus_reg regulator\n",
+					__func__);
+			retval = PTR_ERR(rmi4_data->bus_reg);
+			goto regulator_put;
+		}
+	}
+	pr_err("[TP]%s: synaptics bus_reg_name = %s\n", __func__, bdata->bus_reg_name );
+	return 0;
 
+regulator_put:
+	if (rmi4_data->pwr_reg) {
+		regulator_put(rmi4_data->pwr_reg);
+		rmi4_data->pwr_reg = NULL;
+	}
+
+	return retval;
+
+#ifndef NUBIA_TOUCH_SYNAPTICS
 	retval = regulator_set_load(rmi4_data->pwr_reg,
 		20000);
 	if (retval < 0) {
@@ -3701,19 +4122,19 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 		goto regulator_put;
 	}
 
-	if ((bdata->bus_reg_name != NULL) && (*bdata->bus_reg_name != 0)) {
-		rmi4_data->bus_reg = regulator_get(rmi4_data->pdev->dev.parent,
+	if ((bdata->bus_reg_name != NULL) && (*bdata->power-gpio != 0)) {
+		rmi4_data->power_gpio = regulator_get(rmi4_data->pdev->dev.parent,
 				bdata->bus_reg_name);
-		if (IS_ERR(rmi4_data->bus_reg)) {
+		if (IS_ERR(rmi4_data->power_gpio)) {
 			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: Failed to get bus pullup regulator\n",
 					__func__);
-			retval = PTR_ERR(rmi4_data->bus_reg);
+			retval = PTR_ERR(rmi4_data->power_gpio);
 			goto regulator_put;
 		}
 	}
 
-	retval = regulator_set_load(rmi4_data->bus_reg,
+	retval = regulator_set_load(rmi4_data->power_gpio,
 		62000);
 	if (retval < 0) {
 		dev_err(rmi4_data->pdev->dev.parent,
@@ -3722,7 +4143,7 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 		goto regulator_put;
 	}
 
-	retval = regulator_set_voltage(rmi4_data->bus_reg,
+	retval = regulator_set_voltage(rmi4_data->power_gpio,
 			1800000,
 			1800000);
 	if (retval < 0) {
@@ -3740,64 +4161,76 @@ regulator_put:
 		rmi4_data->pwr_reg = NULL;
 	}
 
-	if (rmi4_data->bus_reg) {
-		regulator_put(rmi4_data->bus_reg);
+	if (rmi4_data->power_gpio) {
+		regulator_put(rmi4_data->power-gpio);
 		rmi4_data->bus_reg = NULL;
 	}
 
 	return retval;
+#endif
 }
 
 static int synaptics_rmi4_enable_reg(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
 {
 	int retval;
-	const struct synaptics_dsx_board_data *bdata =
-			rmi4_data->hw_if->board_data;
+	//const struct synaptics_dsx_board_data *bdata =
+	//		rmi4_data->hw_if->board_data;
 
 	if (!enable) {
 		retval = 0;
 		goto disable_pwr_reg;
 	}
 
-	if (rmi4_data->bus_reg && rmi4_data->vdd_status == 0) {
-		retval = regulator_enable(rmi4_data->bus_reg);
-		if (retval < 0) {
-			dev_err(rmi4_data->pdev->dev.parent,
-					"%s: Failed to enable bus pullup regulator\n",
-					__func__);
-			goto exit;
-		}
-		rmi4_data->vdd_status = 1;
-	}
-
-	if (rmi4_data->pwr_reg && rmi4_data->avdd_status == 0) {
-		retval = regulator_enable(rmi4_data->pwr_reg);
+	/* power on avdd 3.3v */
+	if (g_rmi4_data->pwr_reg && g_rmi4_data->avdd_status == 0) {
+	pr_info("%s:start power on 3v0\n", __func__);
+		retval = regulator_enable(g_rmi4_data->pwr_reg);
 		if (retval < 0) {
 			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: Failed to enable power regulator\n",
 					__func__);
+			goto disable_pwr_reg;
+		}
+		g_rmi4_data->avdd_status = 1;
+
+		msleep(5);
+		dev_err(rmi4_data->pdev->dev.parent, "%s: g_rmi4_data->avdd_status = %d r\n", __func__, g_rmi4_data->avdd_status);
+	}
+	/** power on vdd 1.8v **/
+	if (g_rmi4_data->bus_reg && g_rmi4_data->vdd_status == 0) {
+		retval = regulator_enable(g_rmi4_data->bus_reg);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to enable bus pullup regulator\n",
+					__func__);
 			goto disable_bus_reg;
 		}
-		rmi4_data->avdd_status = 1;
-		msleep(bdata->power_delay_ms);
+		g_rmi4_data->vdd_status = 1;
 	}
 
+	dev_err(rmi4_data->pdev->dev.parent, "%s: g_rmi4_data->vdd_status = %d r\n", __func__, g_rmi4_data->vdd_status);
+	rmi4_data->g_power_flag++;
+	pr_err("[TP]%s:syna  rmi4_data->g_power_flag = %d\n", __func__, rmi4_data->g_power_flag );
 	return 0;
 
 disable_pwr_reg:
-	if (rmi4_data->pwr_reg && rmi4_data->avdd_status == 1) {
-		regulator_disable(rmi4_data->pwr_reg);
-		rmi4_data->avdd_status = 0;
+	if (g_rmi4_data->pwr_reg && g_rmi4_data->avdd_status == 1) {
+		regulator_disable(g_rmi4_data->pwr_reg);
+		g_rmi4_data->avdd_status = 0;
 	}
+
+	pr_err("[TP]%s: synaptics g_rmi4_data->avdd_status= %d\n", __func__, g_rmi4_data->avdd_status );
 
 disable_bus_reg:
-	if (rmi4_data->bus_reg && rmi4_data->vdd_status == 1) {
-		regulator_disable(rmi4_data->bus_reg);
-		rmi4_data->vdd_status = 0;
-	}
+	if (g_rmi4_data->bus_reg && g_rmi4_data->vdd_status == 1) {
+		regulator_disable(g_rmi4_data->bus_reg);
+		g_rmi4_data->vdd_status = 0;
 
-exit:
+	pr_err("[TP]%s: synaptics g_rmi4_data->vdd_status = %d\n", __func__, g_rmi4_data->vdd_status );
+	}
+	rmi4_data->g_power_flag--;
+	pr_err("[TP]%s:syna  rmi4_data->g_power_flag = %d\n", __func__, rmi4_data->g_power_flag );
 	return retval;
 }
 
@@ -3822,7 +4255,6 @@ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data)
 	input_mt_sync(rmi4_data->input_dev);
 #endif
 	input_sync(rmi4_data->input_dev);
-
 	if (rmi4_data->stylus_enable) {
 		input_report_key(rmi4_data->stylus_dev,
 				BTN_TOUCH, 0);
@@ -3838,7 +4270,6 @@ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data)
 	mutex_unlock(&(rmi4_data->rmi4_report_mutex));
 
 	rmi4_data->fingers_on_2d = false;
-
 	return 0;
 }
 
@@ -4224,13 +4655,24 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_new_function);
 
+static void synaptics_resume_work_func(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data =
+			container_of(work, struct synaptics_rmi4_data,
+			resume_work);
+
+	synaptics_rmi4_resume(&rmi4_data->pdev->dev);
+}
+
 static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
 	int retval;
+	unsigned char attr_count;
 	struct synaptics_rmi4_data *rmi4_data;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	const struct synaptics_dsx_board_data *bdata;
 
+	pr_info("%s: enter!\n", __func__);
 	hw_if = pdev->dev.platform_data;
 	if (!hw_if) {
 		dev_err(&pdev->dev,
@@ -4261,6 +4703,36 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->suspend = false;
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fingers_on_2d = false;
+	rmi4_data->g_power_flag = 0;
+	rmi4_data->enable_gesture = 0;
+	rmi4_data->game_on_flag = 0;
+	rmi4_data->normal_gesture_flag = false;
+#ifdef NUBIA_CONTROL_RESUME_SUSPEND
+	rmi4_data->tp_mode_state |= LCD_ON;
+	rmi4_data->tp_mode_state &= AOD_OFF;
+	rmi4_data->tp_mode_state &= FP_EXIT;
+	rmi4_data->fp_down_input_flag = false;
+#endif
+	rmi4_data->en_fpmode = false;
+	rmi4_data->fp_switch = false;
+
+	retval = synaptics_dsx_pinctrl_init(rmi4_data);
+	if (!retval && rmi4_data->ts_pinctrl) {
+		/*
+		* Pinctrl handle is optional. If pinctrl handle is found
+		* let pins to be configured in active state. If not
+		* found continue further without error.
+		*/
+		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
+				rmi4_data->pinctrl_state_active);
+		if (retval < 0) {
+			dev_err(&pdev->dev,
+				"%s: Failed to select %s pinstate %d\n",
+				__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
+	}
+
+	g_rmi4_data = rmi4_data;
 
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
@@ -4301,22 +4773,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		goto err_set_gpio;
 	}
 
-	retval = synaptics_dsx_pinctrl_init(rmi4_data);
-		if (!retval && rmi4_data->ts_pinctrl) {
-			/*
-			* Pinctrl handle is optional. If pinctrl handle is found
-			* let pins to be configured in active state. If not
-			* found continue further without error.
-			*/
-			retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
-					rmi4_data->pinctrl_state_active);
-			if (retval < 0) {
-				dev_err(&pdev->dev,
-					"%s: Failed to select %s pinstate %d\n",
-					__func__, PINCTRL_STATE_ACTIVE, retval);
-			}
-		}
-
 	if (hw_if->ui_hw_init) {
 		retval = hw_if->ui_hw_init(rmi4_data);
 		if (retval < 0) {
@@ -4335,15 +4791,25 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		goto err_set_input_dev;
 	}
 
-	rmi4_data->fb_notifier.notifier_call =
-					synaptics_rmi4_dsi_panel_notifier_cb;
+#ifndef NUBIA_CONTROL_RESUME_SUSPEND
+#ifdef CONFIG_FB
+	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
 	retval = msm_drm_register_client(&rmi4_data->fb_notifier);
 	if (retval < 0) {
 		dev_err(&pdev->dev,
 				"%s: Failed to register fb notifier client\n",
 				__func__);
-		goto err_drm_reg;
 	}
+#endif
+#else
+	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
+	retval = msm_drm_panel_register_client(&rmi4_data->fb_notifier);
+	if (retval < 0) {
+		dev_err(&pdev->dev,
+				"%s: Failed to register fb notifier client\n",
+				__func__);
+	}
+#endif
 
 #ifdef USE_EARLYSUSPEND
 	rmi4_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -4424,6 +4890,16 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	queue_work(rmi4_data->reset_workqueue, &rmi4_data->reset_work);
 #endif
 
+#ifdef NUBIA_SYNAPTICS_FINGER_WAKE_NODE
+	synaptics_nubia_sysfs_node();
+#endif
+	INIT_WORK(&rmi4_data->resume_work, synaptics_resume_work_func);
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	INIT_DELAYED_WORK(&rmi4_data->forced_resume_dw, synaptics_nubiaForcedResume);
+#endif
+	g_rmi4_data = rmi4_data;
+	pr_info("%s: end!\n", __func__);
+
 	return retval;
 
 err_sysfs:
@@ -4442,6 +4918,10 @@ err_virtual_buttons:
 	synaptics_rmi4_irq_enable(rmi4_data, false, false);
 
 err_enable_irq:
+#ifdef CONFIG_FB
+	fb_unregister_client(&rmi4_data->fb_notifier);
+#endif
+
 #ifdef USE_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
 #endif
@@ -4457,6 +4937,8 @@ err_enable_irq:
 err_set_input_dev:
 	synaptics_rmi4_gpio_setup(bdata->irq_gpio, false, 0, 0);
 
+	gpio_set_value(bdata->reset_gpio, 0);
+	gpio_set_value(bdata->power_gpio, 0);
 	if (bdata->reset_gpio >= 0)
 		synaptics_rmi4_gpio_setup(bdata->reset_gpio, false, 0, 0);
 
@@ -4487,7 +4969,7 @@ err_enable_reg:
 err_get_reg:
 	kfree(rmi4_data);
 
-	return;
+	return retval;
 }
 
 static int synaptics_rmi4_remove(struct platform_device *pdev)
@@ -4524,7 +5006,9 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 
 	synaptics_rmi4_irq_enable(rmi4_data, false, false);
 
-	msm_drm_unregister_client(&rmi4_data->fb_notifier);
+#ifdef CONFIG_FB
+	fb_unregister_client(&rmi4_data->fb_notifier);
+#endif
 
 #ifdef USE_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
@@ -4565,43 +5049,92 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int synaptics_rmi4_dsi_panel_notifier_cb(struct notifier_block *self,
+#ifdef NUBIA_CONTROL_RESUME_SUSPEND
+static void synaptics_nubiactl_resume(struct synaptics_rmi4_data *rmi4_data)
+{
+	int current_state;
+	int message_source;
+	current_state = rmi4_data->tp_mode_state;
+	message_source = rmi4_data->fp_switch;
+
+	switch(message_source) {
+		case FP_MESSAGE:
+			if (!(current_state&FP_ENTER) && rmi4_data->en_fpmode) {
+				rmi4_data->en_fpmode = false;
+				ts_err("->fp_resume  [%d]",current_state);
+			
+				schedule_work(&rmi4_data->resume_work);
+			} else if ((current_state&FP_ENTER) && !(rmi4_data->en_fpmode)) {
+				rmi4_data->en_fpmode = true;
+				ts_err("->fp_gesture [%d]", current_state);
+				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+			}
+			break;
+		case NORMAL_MESSAGE:
+			switch(current_state) {
+				case LCD_ON_AOD_OFF_FP_EXIT:
+					schedule_work(&rmi4_data->resume_work);
+					break;
+				case LCD_OFF_FP_EXIT:
+				case AOD_ON_FP_EXIT:
+					ts_err(" -> suspend_%s [%d]",
+					(rmi4_data->gesture_flag) ? "gesture" : "sleep", current_state);
+					synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+					break;
+				default: break;
+			}
+			break;
+		default: break;
+	}
+}
+#endif
+
+#ifdef CONFIG_FB
+static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data)
 {
-	int transition;
-	struct msm_drm_notifier *evdata = data;
+	int *transition;
+	struct fb_event *evdata = data;
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(self, struct synaptics_rmi4_data,
 			fb_notifier);
+	struct msm_drm_notifier *mndata = data;
 
-	if (!evdata || (evdata->id != 0))
+	if (!mndata || (mndata->id != 0))
 		return 0;
 
 	if (evdata && evdata->data && rmi4_data) {
-		if (event == MSM_DRM_EARLY_EVENT_BLANK) {
-			transition = *(int *)evdata->data;
-			if (transition == MSM_DRM_BLANK_POWERDOWN) {
-				if (rmi4_data->initialized)
-					synaptics_rmi4_suspend(
-							&rmi4_data->pdev->dev);
-				rmi4_data->fb_ready = false;
+		if ((event == MSM_DRM_EARLY_EVENT_BLANK )||
+			(event == MSM_DRM_AOD_EVENT)) {
+			transition = evdata->data;
+			switch(*transition) {
+				case MSM_DRM_BLANK_POWERDOWN:
+					rmi4_data->tp_mode_state &= LCD_OFF;
+					rmi4_data->tp_mode_state &= AOD_OFF;
+					rmi4_data->fb_ready = false;
+					break;
+				case MSM_DRM_BLANK_UNBLANK:
+					rmi4_data->tp_mode_state |= LCD_ON;
+					rmi4_data->fb_ready = true;
+					break;
+				case MSM_DRM_MAJOR_AOD_ON:
+					rmi4_data->tp_mode_state |= AOD_ON;
+					break;
+				case MSM_DRM_MAJOR_AOD_OFF:
+					rmi4_data->tp_mode_state &= AOD_OFF;
+					break;
+				default:return 0;
 			}
+			pr_err("%s [%s][%s][%s]", __func__,
+				(rmi4_data->tp_mode_state&LCD_ON)?"LCD_ON ":"LCD_OFF",
+				(rmi4_data->tp_mode_state&AOD_ON)?"AOD_ON ":"AOD_OFF",
+				(rmi4_data->tp_mode_state&FP_ENTER)?"FP_ENTER":"FP_EXIT");
+			synaptics_nubiactl_resume(rmi4_data);
 		}
 	}
-
-	if (evdata && evdata->data && rmi4_data) {
-		if (event == MSM_DRM_EVENT_BLANK) {
-			transition = *(int *)evdata->data;
-			if (transition == MSM_DRM_BLANK_UNBLANK) {
-				synaptics_rmi4_resume(
-						&rmi4_data->pdev->dev);
-				rmi4_data->fb_ready = true;
-			}
-		}
-	}
-
 	return 0;
 }
+#endif
 
 #ifdef USE_EARLYSUSPEND
 static int synaptics_rmi4_early_suspend(struct early_suspend *h)
@@ -4615,7 +5148,7 @@ static int synaptics_rmi4_early_suspend(struct early_suspend *h)
 	if (rmi4_data->stay_awake)
 		return retval;
 
-	if (rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->enable_gesture) {
 		if (rmi4_data->no_sleep_setting) {
 			synaptics_rmi4_reg_read(rmi4_data,
 					rmi4_data->f01_ctrl_base_addr,
@@ -4674,11 +5207,10 @@ static int synaptics_rmi4_late_resume(struct early_suspend *h)
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(h, struct synaptics_rmi4_data,
 			early_suspend);
-
 	if (rmi4_data->stay_awake)
 		return retval;
 
-	if (rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->enable_gesture) {
 		disable_irq_wake(rmi4_data->irq);
 		goto exit;
 	}
@@ -4720,14 +5252,23 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	unsigned char device_ctrl;
-	const struct synaptics_dsx_board_data *bdata =
+	struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
 
-	if (rmi4_data->stay_awake)
-		return 0;
-
-	if (rmi4_data->enable_wakeup_gesture) {
+	pr_info("%s: suspend->%s start\n", __func__, (rmi4_data->enable_gesture) ? "gesture" : "sleep");
+	if (rmi4_data->stay_awake ||rmi4_data->suspend) {
+		pr_err("%s suspend->already %s", __func__,
+		(rmi4_data->enable_gesture) ? "gesture" : "sleep");
+		return -1;
+	}
+	rmi4_data->resume = false;
+	rmi4_data->suspend_gesture = false;
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+	rmi4_data->game_on_flag = false;
+#endif
+	if (rmi4_data->enable_gesture) {
 		if (rmi4_data->no_sleep_setting) {
+			pr_err("%s: rmi4_data->no_sleep_setting\n", __func__);
 			synaptics_rmi4_reg_read(rmi4_data,
 					rmi4_data->f01_ctrl_base_addr,
 					&device_ctrl,
@@ -4742,10 +5283,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		enable_irq_wake(rmi4_data->irq);
 		goto exit;
 	}
-
 	if (!rmi4_data->suspend) {
 #ifdef SYNA_TDDI
 		if (rmi4_data->no_sleep_setting) {
+			pr_err("%s: rmi4_data->no_sleep_setting\n", __func__);
 			synaptics_rmi4_reg_read(rmi4_data,
 					rmi4_data->f01_ctrl_base_addr,
 					&device_ctrl,
@@ -4761,16 +5302,14 @@ static int synaptics_rmi4_suspend(struct device *dev)
 #endif
 		synaptics_rmi4_irq_enable(rmi4_data, false, false);
 		synaptics_rmi4_sleep_enable(rmi4_data, true);
-		synaptics_rmi4_free_fingers(rmi4_data);
 	}
-
-	if (bdata->reset_gpio >= 0) {
-		gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
-		msleep(bdata->reset_active_ms);
+	if (!rmi4_data->enable_gesture && rmi4_data->g_power_flag) {
+		disable_irq(bdata->irq_gpio);
+		if (bdata->reset_gpio >= 0) {
+			gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
+		}
+	        synaptics_rmi4_enable_reg(g_rmi4_data, 0);
 	}
-
-	synaptics_rmi4_enable_reg(rmi4_data, false);
-
 exit:
 	mutex_lock(&exp_data.mutex);
 	if (!list_empty(&exp_data.list)) {
@@ -4779,8 +5318,11 @@ exit:
 				exp_fhandler->exp_fn->suspend(rmi4_data);
 	}
 	mutex_unlock(&exp_data.mutex);
-
+	synaptics_rmi4_free_fingers(rmi4_data);
 	rmi4_data->suspend = true;
+	if(rmi4_data->enable_gesture)
+		rmi4_data->suspend_gesture = true;
+	pr_info("%s:suspend->%s end\n", __func__, (rmi4_data->enable_gesture)?"gesture":"sleep");
 
 	return 0;
 }
@@ -4792,34 +5334,59 @@ static int synaptics_rmi4_resume(struct device *dev)
 #endif
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	const struct synaptics_dsx_board_data *bdata =
+	struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
-	if (rmi4_data->stay_awake)
-		return 0;
 
-	if (rmi4_data->enable_wakeup_gesture) {
+	pr_info("%s:resume->start\n", __func__);
+
+	//rmi4_data->fp_down_input_flag = false;
+	if (rmi4_data->stay_awake ||!(rmi4_data->suspend))  {
+		pr_err("%s already resume", __func__);
+		return -1;
+	}
+	rmi4_data->resume = true;
+	//if (!rmi4_data->enable_gesture&& !rmi4_data->g_power_flag) {
+	if ( !rmi4_data->g_power_flag) {
+		synaptics_rmi4_enable_reg(g_rmi4_data, 1);
+		if (bdata->reset_gpio >= 0) {
+			gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
+			msleep(10);
+			gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
+			msleep(10);
+			gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
+		}
+		enable_irq(bdata->irq_gpio);
+	} else {
+			gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
+			msleep(10);
+			gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
+			msleep(10);
+
+
+
+	}
+/*
+	if (rmi4_data->enable_gesture) {
 		disable_irq_wake(rmi4_data->irq);
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
 		goto exit;
 	}
-
-	synaptics_rmi4_enable_reg(rmi4_data, true);
-
-	if (bdata->reset_gpio >= 0) {
-		gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
-		msleep(bdata->reset_active_ms);
-		gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
-		msleep(bdata->reset_delay_ms);
+*/
+    if(rmi4_data->fp_down_input_flag){
+			rmi4_data->fp_down_input_flag = false;
+			ts_err(" detect fp_up---->F12");
+			input_sync(rmi4_data->input_dev);
+			input_report_key(rmi4_data->input_dev, KEY_F12, 1);
+			input_sync(rmi4_data->input_dev);
+			input_report_key(rmi4_data->input_dev, KEY_F12, 0);
+			input_sync(rmi4_data->input_dev);
 	}
-
-
 	rmi4_data->current_page = MASK_8BIT;
 
 	synaptics_rmi4_sleep_enable(rmi4_data, false);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);
 
-exit:
+//exit:
 #ifdef FB_READY_RESET
 	retval = synaptics_rmi4_reset_device(rmi4_data, false);
 	if (retval < 0) {
@@ -4827,6 +5394,7 @@ exit:
 				"%s: Failed to issue reset command\n",
 				__func__);
 	}
+
 #endif
 	mutex_lock(&exp_data.mutex);
 	if (!list_empty(&exp_data.list)) {
@@ -4837,14 +5405,31 @@ exit:
 	mutex_unlock(&exp_data.mutex);
 
 	rmi4_data->suspend = false;
-
+	if (rmi4_data->enable_gesture && !(rmi4_data->gesture_flag) &&
+		!(rmi4_data->tp_mode_state & FP_ENTER)) {
+		rmi4_data->enable_gesture = 0;
+		ts_err(": clear fp gesture fp_mode=%d",
+			rmi4_data->tp_mode_state&FP_ENTER);
+	} else if (rmi4_data->shortcuts_flag && rmi4_data->game_mode) {
+		ts_err(":enable TP 240Hz rate");
+		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
+	}
+	pr_info("%s:resume->%s\n", __func__,
+		rmi4_data->tp_mode_state & FP_ENTER ? "gesture" : "end");
+	if(rmi4_data->tp_mode_state & FP_ENTER) {
+		usleep_range(20000, 25000); //nubia@:resume to suspend must delay sometimes
+		rmi4_data->en_fpmode = false;
+		synaptics_nubiactl_resume(rmi4_data);
+	}
 	return 0;
 }
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
+#ifndef CONFIG_FB
 	.suspend = synaptics_rmi4_suspend,
 	.resume = synaptics_rmi4_resume,
+#endif
 };
 #endif
 
@@ -4863,6 +5448,7 @@ static struct platform_driver synaptics_rmi4_driver = {
 static int __init synaptics_rmi4_init(void)
 {
 	int retval;
+	pr_err("[TP]%s\n", __func__);
 
 	retval = synaptics_rmi4_bus_init();
 	if (retval)

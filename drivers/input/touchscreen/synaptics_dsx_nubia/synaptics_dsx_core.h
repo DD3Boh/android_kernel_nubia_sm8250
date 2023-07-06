@@ -111,6 +111,7 @@
 #define F12_SMALL_OBJECT_STATUS 0x0D
 
 #define F12_GESTURE_DETECTION_LEN 5
+#define NUBIA_GESTURE_DETECTION_LEN 6
 
 #define MAX_NUMBER_OF_BUTTONS 4
 #define MAX_INTR_REGISTERS 4
@@ -128,6 +129,75 @@
 #define PINCTRL_STATE_ACTIVE    "pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND   "pmx_ts_suspend"
 #define PINCTRL_STATE_RELEASE   "pmx_ts_release"
+
+#define NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+#define NUBIA_SYNAPTICS_FINGER_WAKE_NODE
+#define NUBIA_CONTROL_RESUME_SUSPEND
+
+#define NUBIA_DEBUG_LOG
+
+#ifdef NUBIA_DEBUG_LOG
+#define ts_err(fmt, arg...)	pr_err("%s"fmt"\n", __func__, ##arg)
+#else
+#define ts_err(fmt, arg...)	do {} while (0)
+#endif
+#ifdef NUBIA_CONTROL_RESUME_SUSPEND
+#define LCD_ON	BIT(0)
+#define LCD_OFF	~BIT(0)
+#define AOD_ON	BIT(1)
+#define AOD_OFF	~BIT(1)
+#define FP_ENTER		BIT(2)	// aod state need tp enter gesture mode
+#define FP_EXIT		~BIT(2)	// tp not to enter gesture mode for resume or suspend
+
+#define LCD_ON_AOD_OFF_FP_EXIT		1	// LCD_ON&AOD_OFF&FP_EXIT
+#define LCD_ON_AOD_OFF_FP_ENTER		5
+
+#define LCD_OFF_FP_EXIT		0
+#define LCD_ON_AOD_OFF_FP_EXIT		1
+#define AOD_ON_FP_EXIT		3
+
+#define FORCED_RESUME		15
+
+#define FP_MESSAGE		1
+#define NORMAL_MESSAGE	0
+
+#define FP_DOWN_DATA	 32	// 0x20 sensorUI finger down "Hexadecimal to binary -> 20 to 32"
+#define FP_UP_DATA 	 33	// 0x21 sensorUI finger up "Hexadecimal to binary -> 21 to 33"
+#define DOUBLE_CLICK	3	// 0x03 sensorUI finger down "Hexadecimal to binary -> 20 to 32"
+#define ONCE_CLICK	16	// 0x16 sensorUI finger down "Hexadecimal to binary -> 20 to 32"
+
+enum {
+	FP_GESTURE_OFF = 0,
+	FP_GESTURE_ON,
+	NORMAL_GESTURE,
+	FP_DEBUG_ON,
+	FP_DEBUG_OFF
+};
+
+/* fp_size coordinate value: start (445,2251) end (635,2061) */
+#define UP_Y_VALUE	2061
+#define DOWN_Y_VALUE	2251
+#define LEFT_X_VALUE	445
+#define RIGHT_X_VALUE	635
+
+/*
+ * fp_size edge coordinate value, and extend 25 pixel,makesure fp_size edge
+ * can be detected eg: 2061 -5 = 2056
+ */
+#define UP_FUZZY_RANGE		2056
+#define DONW_FUZZY_RANGE	2256
+#define LEFT_FUZZY_RANGE	440
+#define RIGHT_FUZZY_RANGE	640
+
+/*
+ * NUBIA_WX means Major axis of touching ellipse,
+ * in other words,the width of the x-axis is used to indicate the finger area.
+ */
+#define NUBIA_WX	10
+#define NUBIA_WY	4
+#define NUBIA_GESTURE_ADDR	0x0402
+
+#endif
 
 enum exp_fn {
 	RMI_DEV = 0,
@@ -353,6 +423,13 @@ struct synaptics_rmi4_device_info {
  * @report_touch: pointer to touch reporting function
  */
 struct synaptics_rmi4_data {
+#ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
+	bool game_mode;
+#endif
+	bool fp_switch;
+	bool en_fpmode;
+	bool normal_gesture_flag;
+	struct work_struct resume_work;
 	struct platform_device *pdev;
 	struct input_dev *input_dev;
 	struct input_dev *stylus_dev;
@@ -368,14 +445,19 @@ struct synaptics_rmi4_data {
 	struct mutex rmi4_exp_init_mutex;
 	struct mutex rmi4_irq_enable_mutex;
 	struct delayed_work rb_work;
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	struct delayed_work forced_resume_dw;
+#endif
 	struct workqueue_struct *rb_workqueue;
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
 	struct pinctrl_state *pinctrl_state_release;
+#ifdef CONFIG_FB
 	struct notifier_block fb_notifier;
 	struct work_struct reset_work;
 	struct workqueue_struct *reset_workqueue;
+#endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -389,6 +471,9 @@ struct synaptics_rmi4_data {
 	unsigned char report_enable;
 	unsigned char no_sleep_setting;
 	unsigned char gesture_detection[F12_GESTURE_DETECTION_LEN];
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	unsigned char nubia_detection[NUBIA_GESTURE_DETECTION_LEN];
+#endif
 	unsigned char intr_mask[MAX_INTR_REGISTERS];
 	unsigned char *button_txrx_mapping;
 	unsigned short num_of_intr_regs;
@@ -399,7 +484,11 @@ struct synaptics_rmi4_data {
 #ifdef F51_DISCRETE_FORCE
 	unsigned short f51_query_base_addr;
 #endif
+#ifdef NUBIA_CONTROL_RESUME_SUSPEND
+	unsigned int tp_mode_state;
+#endif
 	unsigned int firmware_id;
+	int g_power_flag;
 	int irq;
 	int sensor_max_x;
 	int sensor_max_y;
@@ -410,14 +499,23 @@ struct synaptics_rmi4_data {
 	int vdd_status;
 	bool flash_prog_mode;
 	bool irq_enabled;
+#ifdef NUBIA_TOUCH_SYNAPTICS
+	int fp_event_count;
+	bool fp_down_input_flag;
+	bool shortcuts_flag;
+	bool suspend_gesture;
+	bool game_on_flag;
+#endif
 	bool fingers_on_2d;
 	bool suspend;
+	bool resume;
 	bool sensor_sleep;
 	bool stay_awake;
 	bool fb_ready;
 	bool f11_wakeup_gesture;
 	bool f12_wakeup_gesture;
-	bool enable_wakeup_gesture;
+	bool enable_gesture;
+	bool gesture_flag;
 	bool wedge_sensor;
 	bool report_pressure;
 	bool stylus_enable;
