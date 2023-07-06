@@ -41,7 +41,7 @@
 #include <linux/ctype.h>
 #include <linux/hrtimer.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include "synaptics_dsx.h"
 #include "synaptics_dsx_core.h"
 
 #define SYSFS_FOLDER_NAME "f54"
