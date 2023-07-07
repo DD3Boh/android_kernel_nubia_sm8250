@@ -703,7 +703,7 @@ static ssize_t synaptics_nubia_fod_press_show(struct kobject *kobj,
 static ssize_t synaptics_nubia_fp_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", g_rmi4_data->enable_wakeup_gesture);
+	return snprintf(buf, PAGE_SIZE, "%d\n", g_rmi4_data->enable_fod_gesture);
 }
 
 static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
@@ -713,15 +713,15 @@ static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
 	unsigned int input;
 	sscanf(buf, "%d", &en);
 
-	input = en;
+	input = en > 0 ? 1 : 0;
 
 #ifndef NUBIA_CONTROL_RESUME_SUSPEND
-	g_rmi4_data->enable_wakeup_gesture = input;
+	g_rmi4_data->enable_fod_gesture = input;
 
-	pr_info("%s.enable_wakeup_gesture [%d]", __func__, g_rmi4_data->enable_wakeup_gesture);
+	pr_info("%s.enable_fod_gesture [%d]", __func__, g_rmi4_data->enable_fod_gesture);
 
-	if (!g_rmi4_data->enable_wakeup_gesture) {
-		pr_err("%s gesture [%d], now to resume tp", __func__, g_rmi4_data->enable_wakeup_gesture);
+	if (!g_rmi4_data->enable_fod_gesture) {
+		pr_err("%s gesture [%d], now to resume tp", __func__, g_rmi4_data->enable_fod_gesture);
 		schedule_work(&g_rmi4_data->resume_work);
 		g_rmi4_data->fb_ready = true;
 	}
@@ -730,22 +730,11 @@ static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
 	switch (en) {
 		case FP_GESTURE_OFF:
 			g_rmi4_data->tp_mode_state &= FP_EXIT;
-			if (g_rmi4_data->gesture_flag) {
-				ts_err(".double_click exist--->no suspend<---");
-				break;
-			}
-			g_rmi4_data->enable_wakeup_gesture = 0;
-			g_rmi4_data->normal_gesture_flag = false;
+			g_rmi4_data->enable_fod_gesture = 0;
 			break;
 		case FP_GESTURE_ON:
 			g_rmi4_data->tp_mode_state |= FP_ENTER;
-			g_rmi4_data->enable_wakeup_gesture = 1;
-			g_rmi4_data->normal_gesture_flag = false;
-			break;
-		case NORMAL_GESTURE:
-			g_rmi4_data->tp_mode_state |= FP_ENTER;
-			g_rmi4_data->enable_wakeup_gesture = 1;
-			g_rmi4_data->normal_gesture_flag = true;
+			g_rmi4_data->enable_fod_gesture = 1;
 			break;
 		}
 	synaptics_nubiactl_resume(g_rmi4_data);
@@ -1609,7 +1598,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 	size_of_2d_data = sizeof(struct synaptics_rmi4_f12_finger_data);
 
-	if (rmi4_data->suspend && rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->suspend && (rmi4_data->enable_wakeup_gesture || rmi4_data->enable_fod_gesture)) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				data_addr + extra_data->data4_offset,
 				rmi4_data->gesture_detection,
@@ -1636,7 +1625,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			rmi4_data->gesture_detection[0]);
 		}
 
-		if (!(rmi4_data->normal_gesture_flag) && (rmi4_data->tp_mode_state & FP_ENTER))
+		if ((rmi4_data->tp_mode_state & FP_ENTER))
 			synaptics_nubia_fp_input(rmi4_data, nubia_x, nubia_y, gesture_type);
 		if (!(rmi4_data->tp_mode_state & FP_ENTER) && rmi4_data->fp_down_input_flag)
 			synaptics_nubia_shortcuts_input(rmi4_data, nubia_x, nubia_y, gesture_type);
@@ -4690,9 +4679,9 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fingers_on_2d = false;
 	rmi4_data->g_power_flag = 0;
+	rmi4_data->enable_fod_gesture = 0;
 	rmi4_data->enable_wakeup_gesture = 0;
 	rmi4_data->game_on_flag = 0;
-	rmi4_data->normal_gesture_flag = false;
 #ifdef NUBIA_CONTROL_RESUME_SUSPEND
 	rmi4_data->tp_mode_state |= LCD_ON;
 	rmi4_data->tp_mode_state &= AOD_OFF;
@@ -5252,7 +5241,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 #ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
 	rmi4_data->game_on_flag = false;
 #endif
-	if (rmi4_data->enable_wakeup_gesture) {
+	if (rmi4_data->enable_wakeup_gesture || rmi4_data->enable_fod_gesture) {
 		if (rmi4_data->no_sleep_setting) {
 			pr_err("%s: rmi4_data->no_sleep_setting\n", __func__);
 			synaptics_rmi4_reg_read(rmi4_data,
@@ -5289,7 +5278,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_irq_enable(rmi4_data, false, false);
 		synaptics_rmi4_sleep_enable(rmi4_data, true);
 	}
-	if (!rmi4_data->enable_wakeup_gesture && rmi4_data->g_power_flag) {
+	if (!rmi4_data->enable_wakeup_gesture && !rmi4_data->enable_fod_gesture && rmi4_data->g_power_flag) {
 		disable_irq(bdata->irq_gpio);
 		if (bdata->reset_gpio >= 0) {
 			gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
@@ -5306,7 +5295,7 @@ exit:
 	mutex_unlock(&exp_data.mutex);
 	synaptics_rmi4_free_fingers(rmi4_data);
 	rmi4_data->suspend = true;
-	if(rmi4_data->enable_wakeup_gesture)
+	if(rmi4_data->enable_wakeup_gesture || rmi4_data->enable_fod_gesture)
 		rmi4_data->suspend_gesture = true;
 	pr_info("%s:suspend->%s end\n", __func__, (rmi4_data->enable_wakeup_gesture)?"gesture":"sleep");
 
@@ -5391,9 +5380,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 	mutex_unlock(&exp_data.mutex);
 
 	rmi4_data->suspend = false;
-	if (rmi4_data->enable_wakeup_gesture && !(rmi4_data->gesture_flag) &&
+	if (rmi4_data->enable_fod_gesture && !(rmi4_data->gesture_flag) &&
 		!(rmi4_data->tp_mode_state & FP_ENTER)) {
-		rmi4_data->enable_wakeup_gesture = 0;
+		rmi4_data->enable_fod_gesture = 0;
 		ts_err(": clear fp gesture fp_mode=%d",
 			rmi4_data->tp_mode_state&FP_ENTER);
 	} else if (rmi4_data->shortcuts_flag && rmi4_data->game_mode) {
