@@ -127,7 +127,7 @@
 #define MASK_1BIT 0x01
 
 #define PINCTRL_STATE_ACTIVE    "pmx_ts_active"
-#define PINCTRL_STATE_SUSPEND   "pmx_ts_suspend"
+#define PINCTRL_STATE_SUSPEND   "pmx_ts_int_suspend"
 #define PINCTRL_STATE_RELEASE   "pmx_ts_release"
 
 #define NUBIA_SYNAPTICS_TOUCH_GAME_MODE

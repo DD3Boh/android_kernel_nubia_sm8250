@@ -4027,7 +4027,7 @@ static int synaptics_dsx_pinctrl_init(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	rmi4_data->pinctrl_state_suspend
-		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_suspend");
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_int_suspend");
 	if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_suspend)) {
 		retval = PTR_ERR(rmi4_data->pinctrl_state_suspend);
 		dev_err(rmi4_data->pdev->dev.parent,
