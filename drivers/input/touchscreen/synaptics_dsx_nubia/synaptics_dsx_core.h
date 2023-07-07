@@ -514,6 +514,7 @@ struct synaptics_rmi4_data {
 	bool fb_ready;
 	bool f11_wakeup_gesture;
 	bool f12_wakeup_gesture;
+	bool enable_fod_gesture;
 	bool enable_wakeup_gesture;
 	bool gesture_flag;
 	bool wedge_sensor;
