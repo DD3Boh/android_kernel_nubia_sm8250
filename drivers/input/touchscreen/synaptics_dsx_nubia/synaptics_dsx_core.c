@@ -693,6 +693,12 @@ static struct synaptics_rmi4_exp_fn_data exp_data;
 
 static struct synaptics_dsx_button_map *vir_button_map;
 
+static ssize_t synaptics_nubia_fod_press_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", g_rmi4_data->fp_down_input_flag);
+}
+
 #ifdef NUBIA_SYNAPTICS_FINGER_WAKE_NODE
 static ssize_t synaptics_nubia_fp_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -802,6 +808,8 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct kobject *kobj,
 
 static struct kobject *tp_kobj = NULL;
 static struct kobj_attribute tp_node_attrs[] = {
+	__ATTR(fod_pressed, 0444, synaptics_nubia_fod_press_show,
+						NULL),
 	__ATTR(fp_mode, 0664, synaptics_nubia_fp_mode_show,
 						synaptics_nubia_fp_mode_store),
 	__ATTR(report_rate, 0664, synaptics_nubia_report_rate_show,
