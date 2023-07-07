@@ -4349,6 +4349,7 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 
 #ifdef CONFIG_MACH_NUBIA_NX659J
 	dsi_panel_notifier(MSM_DRM_AOD_EVENT, MSM_DRM_MAJOR_AOD_ON);
+	pr_err("aod lp1\n");
 #endif
 exit:
 	mutex_unlock(&panel->panel_lock);
@@ -4372,6 +4373,8 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP2 cmd, rc=%d\n",
 		       panel->name, rc);
+
+	pr_err("aod lp2\n");
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4421,6 +4424,7 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 		dsi_panel_set_backlight(panel, 0);
 
 		dsi_panel_notifier(MSM_DRM_AOD_EVENT, MSM_DRM_MAJOR_AOD_OFF);
+		pr_err("aod off\n");
 	}
 #endif
 
