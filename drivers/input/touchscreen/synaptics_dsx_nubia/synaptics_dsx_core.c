@@ -720,7 +720,7 @@ static ssize_t synaptics_nubia_fp_mode_store(struct kobject *kobj,
 
 	if (!g_rmi4_data->enable_fod_gesture) {
 		pr_err("%s gesture [%d], now to resume tp", __func__, g_rmi4_data->enable_fod_gesture);
-		schedule_work(&g_rmi4_data->resume_work);
+		synaptics_rmi4_resume(g_rmi4_data);
 		g_rmi4_data->fb_ready = true;
 	}
 #else
@@ -4612,15 +4612,6 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_new_function);
 
-static void synaptics_resume_work_func(struct work_struct *work)
-{
-	struct synaptics_rmi4_data *rmi4_data =
-			container_of(work, struct synaptics_rmi4_data,
-			resume_work);
-
-	synaptics_rmi4_resume(&rmi4_data->pdev->dev);
-}
-
 static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
 	int retval;
@@ -4848,7 +4839,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 #ifdef NUBIA_SYNAPTICS_FINGER_WAKE_NODE
 	synaptics_nubia_sysfs_node();
 #endif
-	INIT_WORK(&rmi4_data->resume_work, synaptics_resume_work_func);
 #ifdef NUBIA_TOUCH_SYNAPTICS
 	INIT_DELAYED_WORK(&rmi4_data->forced_resume_dw, synaptics_nubiaForcedResume);
 #endif
