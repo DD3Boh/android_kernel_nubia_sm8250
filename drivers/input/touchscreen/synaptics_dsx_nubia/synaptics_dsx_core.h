@@ -426,9 +426,6 @@ struct synaptics_rmi4_data {
 #ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
 	bool game_mode;
 #endif
-	bool fp_switch;
-	bool en_fpmode;
-	bool normal_gesture_flag;
 	struct work_struct resume_work;
 	struct platform_device *pdev;
 	struct input_dev *input_dev;
@@ -502,7 +499,6 @@ struct synaptics_rmi4_data {
 #ifdef NUBIA_TOUCH_SYNAPTICS
 	int fp_event_count;
 	bool fp_down_input_flag;
-	bool shortcuts_flag;
 	bool suspend_gesture;
 	bool game_on_flag;
 #endif
