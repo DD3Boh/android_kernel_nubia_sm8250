@@ -425,7 +425,6 @@ struct synaptics_rmi4_data {
 #ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
 	bool game_mode;
 #endif
-	struct work_struct resume_work;
 	struct platform_device *pdev;
 	struct input_dev *input_dev;
 	struct input_dev *stylus_dev;
