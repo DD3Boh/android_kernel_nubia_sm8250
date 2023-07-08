@@ -149,17 +149,16 @@
 #define FP_ENTER		BIT(2)	// aod state need tp enter gesture mode
 #define FP_EXIT		~BIT(2)	// tp not to enter gesture mode for resume or suspend
 
-#define LCD_ON_AOD_OFF_FP_EXIT		1	// LCD_ON&AOD_OFF&FP_EXIT
-#define LCD_ON_AOD_OFF_FP_ENTER		5
-
-#define LCD_OFF_FP_EXIT		0
-#define LCD_ON_AOD_OFF_FP_EXIT		1
-#define AOD_ON_FP_EXIT		3
+enum tp_mode {
+	LCD_OFF_AOD_OFF_FP_EXIT = 0,
+	LCD_ON_AOD_OFF_FP_EXIT,
+	LCD_ON_AOD_ON_FP_EXIT = 3,
+	LCD_OFF_AOD_OFF_FP_ENTER,
+	LCD_ON_AOD_OFF_FP_ENTER,
+	LCD_ON_AOD_ON_FP_ENTER = 7
+};
 
 #define FORCED_RESUME		15
-
-#define FP_MESSAGE		1
-#define NORMAL_MESSAGE	0
 
 #define FP_DOWN_DATA	 32	// 0x20 sensorUI finger down "Hexadecimal to binary -> 20 to 32"
 #define FP_UP_DATA 	 33	// 0x21 sensorUI finger up "Hexadecimal to binary -> 21 to 33"
@@ -426,9 +425,6 @@ struct synaptics_rmi4_data {
 #ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
 	bool game_mode;
 #endif
-	bool fp_switch;
-	bool en_fpmode;
-	bool normal_gesture_flag;
 	struct work_struct resume_work;
 	struct platform_device *pdev;
 	struct input_dev *input_dev;
@@ -502,7 +498,6 @@ struct synaptics_rmi4_data {
 #ifdef NUBIA_TOUCH_SYNAPTICS
 	int fp_event_count;
 	bool fp_down_input_flag;
-	bool shortcuts_flag;
 	bool suspend_gesture;
 	bool game_on_flag;
 #endif
