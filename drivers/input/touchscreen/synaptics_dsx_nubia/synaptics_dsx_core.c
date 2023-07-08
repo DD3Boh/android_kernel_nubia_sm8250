@@ -146,8 +146,6 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 
 #ifdef NUBIA_CONTROL_RESUME_SUSPEND
 static void synaptics_nubiactl_resume(struct synaptics_rmi4_data *rmi4_data);
-static int synaptics_nubia_shortcuts_input(struct synaptics_rmi4_data *rmi4_data,
-		int nubia_x, int nubia_y, unsigned char gesture_type);
 static int synaptics_nubia_fp_input(struct synaptics_rmi4_data *rmi4_data,
 		int nubia_x, int nubia_y, unsigned char gesture_type);
 static int synaptics_nubia_report_handler(struct synaptics_rmi4_data *rmi4_data,
@@ -1485,12 +1483,6 @@ static int synaptics_nubia_report_handler(struct synaptics_rmi4_data *rmi4_data,
 			rmi4_data->fp_down_input_flag = false;
 			ts_err("---FP_UP_DATA---->[%d] flag[FP_UP]\n",
 			rmi4_data->gesture_detection[0]);
-			if (rmi4_data->shortcuts_flag) {
-				rmi4_data->shortcuts_flag == false;
-				rmi4_data->en_fpmode = true;
-				synaptics_nubiactl_resume(rmi4_data);
-				ts_err("detect fp_up---->resume");
-			}
 			break;
 		default:break;
 	}
@@ -1501,7 +1493,6 @@ static int synaptics_nubia_fp_input(struct synaptics_rmi4_data *rmi4_data,
 {
 	int fp_x = 0;
 	int fp_y = 0;
-	rmi4_data->shortcuts_flag = false;
 	if ((LEFT_X_VALUE < nubia_x) && (nubia_x < RIGHT_X_VALUE)) {
 		if ((UP_Y_VALUE < nubia_y) && (nubia_y < DOWN_Y_VALUE)) {
 			if (((rmi4_data->nubia_detection[4] < NUBIA_WX) ||
@@ -1538,15 +1529,6 @@ over_limit:
 	input_sync(rmi4_data->input_dev);
 	input_report_key(rmi4_data->input_dev, KEY_F12, 0);
 	input_sync(rmi4_data->input_dev);
-	return 0;
-}
-
-static int synaptics_nubia_shortcuts_input(struct synaptics_rmi4_data *rmi4_data,
-		int nubia_x, int nubia_y, unsigned char gesture_type)
-{
-	rmi4_data->shortcuts_flag = true;
-	ts_err(" synaptics_nubia_shortcuts_input ");
-	synaptics_nubia_report_handler(rmi4_data, nubia_x, nubia_y, gesture_type);
 	return 0;
 }
 #endif
@@ -1628,7 +1610,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		if ((rmi4_data->tp_mode_state & FP_ENTER))
 			synaptics_nubia_fp_input(rmi4_data, nubia_x, nubia_y, gesture_type);
 		if (!(rmi4_data->tp_mode_state & FP_ENTER) && rmi4_data->fp_down_input_flag)
-			synaptics_nubia_shortcuts_input(rmi4_data, nubia_x, nubia_y, gesture_type);
+			synaptics_nubia_report_handler(rmi4_data, nubia_x, nubia_y, gesture_type);
 #else
 		if (gesture_type && gesture_type != F12_UDG_DETECT) {
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 1);
@@ -4688,8 +4670,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->tp_mode_state &= FP_EXIT;
 	rmi4_data->fp_down_input_flag = false;
 #endif
-	rmi4_data->en_fpmode = false;
-	rmi4_data->fp_switch = false;
 
 	retval = synaptics_dsx_pinctrl_init(rmi4_data);
 	if (!retval && rmi4_data->ts_pinctrl) {
@@ -5027,40 +5007,30 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 #ifdef NUBIA_CONTROL_RESUME_SUSPEND
 static void synaptics_nubiactl_resume(struct synaptics_rmi4_data *rmi4_data)
 {
-	int current_state;
-	int message_source;
-	current_state = rmi4_data->tp_mode_state;
-	message_source = rmi4_data->fp_switch;
+	int current_state = rmi4_data->tp_mode_state;
 
-	switch(message_source) {
-		case FP_MESSAGE:
-			if (!(current_state&FP_ENTER) && rmi4_data->en_fpmode) {
-				rmi4_data->en_fpmode = false;
-				ts_err("->fp_resume  [%d]",current_state);
-			
-				schedule_work(&rmi4_data->resume_work);
-			} else if ((current_state&FP_ENTER) && !(rmi4_data->en_fpmode)) {
-				rmi4_data->en_fpmode = true;
-				ts_err("->fp_gesture [%d]", current_state);
-				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
-			}
+	switch (current_state) {
+		case LCD_OFF_AOD_OFF_FP_EXIT:
+		case LCD_ON_AOD_ON_FP_EXIT:
+			if (rmi4_data->enable_fod_gesture)
+				rmi4_data->tp_mode_state |= FP_ENTER;
+		case LCD_OFF_AOD_OFF_FP_ENTER:
+		case LCD_ON_AOD_ON_FP_ENTER:
+			synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
 			break;
-		case NORMAL_MESSAGE:
-			switch(current_state) {
-				case LCD_ON_AOD_OFF_FP_EXIT:
-					schedule_work(&rmi4_data->resume_work);
-					break;
-				case LCD_OFF_FP_EXIT:
-				case AOD_ON_FP_EXIT:
-					ts_err(" -> suspend_%s [%d]",
-					(rmi4_data->gesture_flag) ? "gesture" : "sleep", current_state);
-					synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
-					break;
-				default: break;
-			}
+		case LCD_ON_AOD_OFF_FP_ENTER:
+			if (rmi4_data->enable_fod_gesture)
+				rmi4_data->tp_mode_state &= FP_EXIT;
+		case LCD_ON_AOD_OFF_FP_EXIT:
+			synaptics_rmi4_resume(&rmi4_data->pdev->dev);
 			break;
 		default: break;
 	}
+
+	pr_info("%s [%s][%s][%s]", __func__,
+		(rmi4_data->tp_mode_state & LCD_ON) ? "LCD_ON" : "LCD_OFF",
+		(rmi4_data->tp_mode_state & AOD_ON) ? "AOD_ON" : "AOD_OFF",
+		(rmi4_data->tp_mode_state & FP_ENTER) ? "FP_ENTER" : "FP_EXIT");
 }
 #endif
 
@@ -5100,10 +5070,7 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 					break;
 				default:return 0;
 			}
-			pr_err("%s [%s][%s][%s]", __func__,
-				(rmi4_data->tp_mode_state&LCD_ON)?"LCD_ON ":"LCD_OFF",
-				(rmi4_data->tp_mode_state&AOD_ON)?"AOD_ON ":"AOD_OFF",
-				(rmi4_data->tp_mode_state&FP_ENTER)?"FP_ENTER":"FP_EXIT");
+
 			synaptics_nubiactl_resume(rmi4_data);
 		}
 	}
@@ -5385,16 +5352,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 		rmi4_data->enable_fod_gesture = 0;
 		ts_err(": clear fp gesture fp_mode=%d",
 			rmi4_data->tp_mode_state&FP_ENTER);
-	} else if (rmi4_data->shortcuts_flag && rmi4_data->game_mode) {
+	} else if (rmi4_data->game_mode) {
 		ts_err(":enable TP 240Hz rate");
 		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
-	}
-	pr_info("%s:resume->%s\n", __func__,
-		rmi4_data->tp_mode_state & FP_ENTER ? "gesture" : "end");
-	if(rmi4_data->tp_mode_state & FP_ENTER) {
-		usleep_range(20000, 25000); //nubia@:resume to suspend must delay sometimes
-		rmi4_data->en_fpmode = false;
-		synaptics_nubiactl_resume(rmi4_data);
 	}
 	return 0;
 }
