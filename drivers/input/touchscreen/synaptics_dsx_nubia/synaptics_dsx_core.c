@@ -5342,7 +5342,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 		rmi4_data->enable_fod_gesture = 0;
 		ts_err(": clear fp gesture fp_mode=%d",
 			rmi4_data->tp_mode_state&FP_ENTER);
-	} else if (rmi4_data->game_mode) {
+	}
+
+	if (rmi4_data->game_mode) {
 		ts_err(":enable TP 240Hz rate");
 		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
 	}
