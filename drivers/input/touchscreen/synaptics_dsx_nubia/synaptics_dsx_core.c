@@ -5186,7 +5186,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	rmi4_data->resume = false;
 	rmi4_data->suspend_gesture = false;
 #ifdef NUBIA_SYNAPTICS_TOUCH_GAME_MODE
-	rmi4_data->game_on_flag = false;
+	nubia_synap_gamemode_enable(rmi4_data, false);
 #endif
 	if (rmi4_data->enable_wakeup_gesture || rmi4_data->enable_fod_gesture) {
 		if (rmi4_data->no_sleep_setting) {
@@ -5332,7 +5332,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 		rmi4_data->enable_fod_gesture = 0;
 		ts_err(": clear fp gesture fp_mode=%d",
 			rmi4_data->tp_mode_state&FP_ENTER);
-	} else if (rmi4_data->game_mode) {
+	}
+
+	if (rmi4_data->game_mode) {
 		ts_err(":enable TP 240Hz rate");
 		nubia_synap_gamemode_enable(rmi4_data, rmi4_data->game_mode);
 	}
