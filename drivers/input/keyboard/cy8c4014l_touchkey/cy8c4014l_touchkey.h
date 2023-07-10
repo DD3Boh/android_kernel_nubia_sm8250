@@ -41,22 +41,22 @@
 
 #define CYPRESS_BUFF_LENGTH                 1024
 
-struct cypress_platform_data{
-    struct input_dev *input_dev;
-    int irq_gpio;
-    int irq_flag;
-    int power_gpio;
-    int power_on_flag;
-    struct regulator *avdd_ldo;
-    int rst_gpio;
+struct cypress_platform_data {
+	struct input_dev *input_dev;
+	int irq_gpio;
+	int irq_flag;
+	int power_gpio;
+	int power_on_flag;
+	struct regulator *avdd_ldo;
+	int rst_gpio;
 };
 struct cypress_info {
-    struct i2c_client *i2c;
-    struct device *dev_t;
-    struct cypress_platform_data *platform_data;
-    struct delayed_work cypress_update_work;
-    struct workqueue_struct *cypress_update_wq;
-    int irq;
+	struct i2c_client *i2c;
+	struct device *dev_t;
+	struct cypress_platform_data *platform_data;
+	struct delayed_work cypress_update_work;
+	struct workqueue_struct *cypress_update_wq;
+	int irq;
 	int new_mode;
 	bool bUpdateOver;
 

@@ -6,7 +6,7 @@
 
 #define LINE_CNT_0 124
 
-const char *stringImage_0[]={
+const char *stringImage_0[]= {
 #include "CY8C4014LQI-421_Bootloadable_NX659_left_13.cyacd"
 };
 
@@ -15,7 +15,7 @@ const char *stringImage_0[]={
 
 #define LINE_CNT_0 124
 
-const char *stringImage_0[]={
+const char *stringImage_0[]= {
 #include "CY8C4014LQI-421_Bootloadable_NX659_left_13.cyacd"
 };
 

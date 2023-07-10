@@ -8,10 +8,8 @@
 #ifndef __CYBTLDR_COMMAND_H__
 #define __CYBTLDR_COMMAND_H__
 
-
 /* Maximum number of bytes to allocate for a single command.  */
 #define MAX_COMMAND_SIZE 512
-
 
 //STANDARD PACKET FORMAT:
 // Multi byte entries are encoded in LittleEndian.
@@ -19,7 +17,6 @@
 * [1-byte] [1-byte ] [2-byte] [n-byte] [ 2-byte ] [1-byte]
 * [ SOP  ] [Command] [ Size ] [ Data ] [Checksum] [ EOP  ]
 *******************************************************************************/
-
 
 /* The first byte of any boot loader command. */
 #define CMD_START               0x01
@@ -50,7 +47,6 @@
 #define CMD_VERIFY_ROW          0x3A
 /* Command identifier for exiting the bootloader and restarting the target program. */
 #define CMD_EXIT_BOOTLOADER     0x3B
-
 
 /******************************************************************************
  *    HOST ERROR CODES
@@ -104,22 +100,20 @@
 /* NB: Rows should have a max of 592 chars (2-arrayID, 4-rowNum, 4-len, 576-data, 2-checksum, 4-newline) */
 #define MAX_BUFFER_SIZE 768
 
-
 /*
  * This enum defines the different types of checksums that can be
  * used by the bootloader for ensuring data integrety.
  */
 typedef enum
 {
-    /* Checksum type is a basic inverted summation of all bytes */
-    SUM_CHECKSUM = 0x00,
-    /* 16-bit CRC checksum using the CCITT implementation */
-    CRC_CHECKSUM = 0x01,
+	/* Checksum type is a basic inverted summation of all bytes */
+	SUM_CHECKSUM = 0x00,
+	/* 16-bit CRC checksum using the CCITT implementation */
+	CRC_CHECKSUM = 0x01,
 } CyBtldr_ChecksumType;
 
 /* Variable used to store the currently selected packet checksum type */
 extern CyBtldr_ChecksumType CyBtldr_Checksum;
-
 
 /*******************************************************************************
 * Function Name: CyBtldr_ComputeChecksum
