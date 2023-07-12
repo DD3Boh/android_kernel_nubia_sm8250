@@ -3528,7 +3528,52 @@ end:
 	utils->node = panel->panel_of_node;
 }
 
+static ssize_t sysfs_hbm_mode_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", display->panel->hbm_enabled);
+}
+
+static ssize_t sysfs_hbm_mode_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct dsi_display *display;
+	unsigned int input;
+	bool enable;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	enable = input > 0 ? true : false;
+
+	if (dsi_panel_initialized(display->panel)) {
+		dsi_panel_set_hbm(display->panel, enable);
+		display->panel->hbm_enabled = enable;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(hbm, 0664,
+			sysfs_hbm_mode_show,
+			sysfs_hbm_mode_store);
+
 static struct attribute *panel_attrs[] = {
+	&dev_attr_hbm.attr,
 	NULL,
 };
 
