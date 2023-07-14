@@ -225,6 +225,7 @@ struct dsi_panel {
 	int panel_test_gpio;
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
+	unsigned char cabc_level;
 	bool hbm_enabled;
 };
 
