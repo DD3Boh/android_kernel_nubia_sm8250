@@ -844,6 +844,71 @@ int dsi_panel_set_hbm(struct dsi_panel *panel, bool status)
 	return rc;
 }
 
+enum {
+	CABC_OFF = 0,
+	CABC_LEVEL1,
+	CABC_LEVEL2,
+	CABC_LEVEL3
+};
+
+int dsi_panel_set_cabc(struct dsi_panel *panel, unsigned char level)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+	mutex_lock(&panel->panel_lock);
+
+	if (panel->panel_initialized == false) {
+		pr_err("panel[%s] not ready\n", panel->name);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	pr_err("[%s] set cabc %d", panel->name, level);
+	switch(level) {
+		case CABC_OFF:
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_CABC_OFF);
+			if (rc) {
+				pr_err("[%s] failed to send DSI_CMD_SET_CABC_OFF cmds, rc=%d\n",
+				panel->name, rc);
+			}
+			break;
+		case CABC_LEVEL1:
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_CABC_LEVEL1);
+			if (rc) {
+				pr_err("[%s] failed to send DSI_CMD_SET_CABC_LEVEL1 cmds, rc=%d\n",
+					panel->name, rc);
+			}
+			break;
+		case CABC_LEVEL2:
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_CABC_LEVEL2);
+			if (rc) {
+				pr_err("[%s] failed to send DSI_CMD_SET_CABC_LEVEL2 cmds, rc=%d\n",
+					panel->name, rc);
+			}
+			break;
+		case CABC_LEVEL3:
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_CABC_LEVEL3);
+			if (rc) {
+				pr_err("[%s] failed to send DSI_CMD_SET_CABC_LEVEL3 cmds, rc=%d\n",
+				panel->name, rc);
+			}
+			break;
+		default:
+			goto exit;
+			break;
+	}
+
+	panel->cabc_level = level;
+
+exit:
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -3536,6 +3601,45 @@ end:
 	utils->node = panel->panel_of_node;
 }
 
+static ssize_t sysfs_cabc_mode_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", display->panel->cabc_level);
+}
+
+static ssize_t sysfs_cabc_mode_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct dsi_display *display;
+	unsigned char level;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%u", &level) != 1)
+		return -EINVAL;
+
+	if (dsi_panel_initialized(display->panel))
+		dsi_panel_set_cabc(display->panel, level);
+
+	return count;
+}
+
+static DEVICE_ATTR(cabc, 0664,
+			sysfs_cabc_mode_show,
+			sysfs_cabc_mode_store);
+
 static ssize_t sysfs_hbm_mode_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -3581,6 +3685,7 @@ static DEVICE_ATTR(hbm, 0664,
 			sysfs_hbm_mode_store);
 
 static struct attribute *panel_attrs[] = {
+	&dev_attr_cabc.attr,
 	&dev_attr_hbm.attr,
 	NULL,
 };
