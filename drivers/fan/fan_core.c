@@ -60,14 +60,14 @@ struct delayed_work fan_delay_work;
 
 static bool get_fan_power_on_state(void)
 {
-	printk(KERN_ERR "%s: fan_power_on=%d\n", __func__, fan_power_on);
+	pr_err("%s: fan_power_on=%d\n", __func__, fan_power_on);
 	return fan_power_on;
 }
 
 static void set_fan_power_on_state(bool state)
 {
 	fan_power_on = state;
-	printk(KERN_ERR "%s: state=%d\n", __func__, state);
+	pr_err("%s: state=%d\n", __func__, state);
 }
 
 void lowlevel_delay(int microseconds)
@@ -139,7 +139,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// read the prompt
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -148,7 +148,7 @@ int MAX28200_program(uint8_t *image, int size)
 	fan_i2c_write(nubia_fan, &val, 1);
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -165,7 +165,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// read the prompt
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -177,7 +177,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// S 55 [04*] P
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != 0x04) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 				__func__, __LINE__, status);
 		return -1;
 	}
@@ -185,9 +185,8 @@ int MAX28200_program(uint8_t *image, int size)
 	// S 55 [00*] P
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != 0x00) {
-		printk(KERN_ERR
-		       "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
-		       __func__, __LINE__, status);
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+			__func__, __LINE__, status);
 		return -1;
 	}
 
@@ -195,7 +194,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// read the prompt
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -220,7 +219,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// S 55 [3E*] P
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -232,10 +231,10 @@ int MAX28200_program(uint8_t *image, int size)
 
 	// S 55 [04*] P
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
-	printk(KERN_ERR "%s<-->%d S55 [04*] P val:%x\n", __func__, __LINE__,
+	pr_err("%s<-->%d S55 [04*] P val:%x\n", __func__, __LINE__,
 	       status);
 	if (status != 0x04) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -243,16 +242,16 @@ int MAX28200_program(uint8_t *image, int size)
 	//S 55 [01*] P
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != 0x01) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
 
 	// S 55 [3E*] P
-	printk(KERN_ERR "%s<-->%d\n", __func__, __LINE__);
+	pr_err("%s<-->%d\n", __func__, __LINE__);
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -276,7 +275,7 @@ int MAX28200_program(uint8_t *image, int size)
 	// read the prompt
 	status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue, 1);
 	if (status != VALUE_PROMPT) {
-		printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+		pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 			__func__, __LINE__, status);
 		return -1;
 	}
@@ -314,7 +313,7 @@ int MAX28200_program(uint8_t *image, int size)
 		status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue,
 					       1);
 		if (status != VALUE_PROMPT) {
-			printk(KERN_ERR"%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+			pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 				__func__, __LINE__, status);
 			return -1;
 		}
@@ -328,7 +327,7 @@ int MAX28200_program(uint8_t *image, int size)
 		status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue,
 					       1);
 		if (status != 0x04) {
-			printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+			pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 				__func__, __LINE__, status);
 			return -1;
 		}
@@ -337,7 +336,7 @@ int MAX28200_program(uint8_t *image, int size)
 		status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue,
 					       1);
 		if (status != MAX28200_LOADER_ERROR_NONE) {
-			printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+			pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 				__func__, __LINE__, status);
 			return -1;
 		}
@@ -346,7 +345,7 @@ int MAX28200_program(uint8_t *image, int size)
 		status = fan_i2c_firmware_read(nubia_fan, &firmware_magicvalue,
 					       1);
 		if (status != VALUE_PROMPT) {
-			printk(KERN_ERR "%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
+			pr_err("%s<-->%d STATUS_INVALID_PROMPT_ERROR status:%x\n",
 				__func__, __LINE__, status);
 			return -1;
 		}
@@ -360,7 +359,7 @@ int MAX28200_fw_updata(void)
 
 	status = MAX28200_program(fw_002, ARRAY_SIZE(fw_002));
 	if (status != STATUS_OK) {
-		printk(KERN_ERR "Error: Programming returned with error: %d\n",
+		pr_err("Error: Programming returned with error: %d\n",
 			status);
 	}
 	return status;
@@ -411,7 +410,7 @@ static void start_speed_count(struct fan *fan)
 	static unsigned char data = 0x01;
 
 	fan_i2c_write(fan, &data, sizeof(data));
-	printk(KERN_ERR "%s:fan_speed=%d\n", __func__, fan_speed);
+	pr_err("%s:fan_speed=%d\n", __func__, fan_speed);
 }
 
 static void stop_speed_count(struct fan *fan)
@@ -419,7 +418,7 @@ static void stop_speed_count(struct fan *fan)
 	static unsigned char data = 0x03;
 
 	fan_i2c_write(fan, &data, sizeof(data));
-	printk(KERN_ERR "%s:fan_speed=%d\n", __func__, fan_speed);
+	pr_err("%s:fan_speed=%d\n", __func__, fan_speed);
 }
 
 static unsigned int get_speed_count(struct fan *fan)
@@ -428,7 +427,7 @@ static unsigned int get_speed_count(struct fan *fan)
 
 	fan_speed = fan_i2c_read(fan, &data, sizeof(data));
 	fan_speed = fan_speed * 20; // the minute speed
-	printk(KERN_ERR "%s:fan_speed=%d,fan_level=%d\n", __func__, fan_speed,
+	pr_err("%s:fan_speed=%d,fan_level=%d\n", __func__, fan_speed,
 		fan_level);
 	return fan_speed;
 }
@@ -454,7 +453,7 @@ static void get_fan_read(void)
 
 		/* If fan is running and read fan_count is 0, reset the fan */
 		if ((fan_speed == 0) && get_fan_power_on_state()) {
-			printk(KERN_ERR "%s:begin reset the fan!!!,fan_level=%d\n",
+			pr_err("%s:begin reset the fan!!!,fan_level=%d\n",
 				__func__, fan_level);
 			set_fan_power_on_state(false);
 			fan_set_pwm_by_level(fan_level);
@@ -463,7 +462,7 @@ static void get_fan_read(void)
 	} else
 		fan_speed = 0;
 
-	printk(KERN_ERR "%s:fan_count=%d\n", __func__, fan_count);
+	pr_err("%s:fan_count=%d\n", __func__, fan_count);
 }
 
 static void fan_read_workqueue(struct work_struct *work)
@@ -476,7 +475,7 @@ static int fan_enable_reg(struct fan *fan, bool enable)
 {
 	int ret;
 
-	printk(KERN_ERR "%s: enable=%d\n", __func__, enable);
+	pr_err("%s: enable=%d\n", __func__, enable);
 
 	if (!enable) {
 		ret = 0;
@@ -588,7 +587,7 @@ static int fan_hw_reset(struct fan *fan, unsigned int delay)
 
 static void fan_set_enable(bool enable)
 {
-	printk(KERN_ERR "%s: enable=%d\n", __func__, enable);
+	pr_err("%s: enable=%d\n", __func__, enable);
 
 	if (!enable) {
 		start_pwm(nubia_fan, 0);
@@ -604,7 +603,7 @@ static void fan_set_pwm_by_level(unsigned int level)
 {
 	static unsigned int old_level = 0;
 
-	printk(KERN_ERR "%s: level=%d,old_level=%d,fan_speed=%d\n", __func__,
+	pr_err("%s: level=%d,old_level=%d,fan_speed=%d\n", __func__,
 	       level, old_level, fan_speed);
 
 	if (level < FAN_LEVEL_0 || level > FAN_LEVEL_MAX)
@@ -742,10 +741,10 @@ static ssize_t fan_speed_level_store(struct kobject *kobj,
 
 	sscanf(buf, "%d", &level);
 
-	printk(KERN_ERR "%s: level=%d,old_level=%d\n", __func__, level,
+	pr_err("%s: level=%d,old_level=%d\n", __func__, level,
 	       old_level);
 	if (level == old_level && level == 0)
-		printk(KERN_ERR "%s: off before\n", __func__);
+		pr_err("%s: off before\n", __func__);
 	else {
 		old_level = level;
 		fan_set_pwm_by_level(level);
@@ -766,7 +765,7 @@ static ssize_t fan_speed_count_show(struct kobject *kobj,
 		fan_set_pwm_by_level(fan_level);
 	}
 
-	printk(KERN_ERR "%s: fan_speed=%d\n", __func__, fan_speed);
+	pr_err("%s: fan_speed=%d\n", __func__, fan_speed);
 	return sprintf(buf, "%d\n", fan_speed);
 }
 
@@ -801,7 +800,7 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	unsigned int try_count = 0;
 	unsigned int i = 0;
 
-	printk(KERN_ERR "fan_probe enter\n");
+	pr_err("fan_probe enter\n");
 
 	fan = devm_kzalloc(&i2c->dev, sizeof(struct fan), GFP_KERNEL);
 	if (fan == NULL)
@@ -841,7 +840,7 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	mdelay(100); //delay 0.1 seconds
 	ret = fan_i2c_read(fan, &firmware_version_reg,
 			   sizeof(firmware_version_reg));
-	printk(KERN_ERR "%s: ret=%d\n", __func__, ret);
+	pr_err("%s: ret=%d\n", __func__, ret);
 
 	if (ret < firmware_version) {
 		try_count = ARRAY_SIZE(delay_table);
@@ -850,11 +849,11 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 			fan_hw_reset(fan, delay_table[i]);
 
 			if (MAX28200_fw_updata() < 0) {
-				printk(KERN_ERR "fan_fw_updata failed %d\n",
+				pr_err("fan_fw_updata failed %d\n",
 				       delay_table[i]);
 				continue;
 			} else {
-				printk(KERN_ERR "fan_fw_updata done\n");
+				pr_err("fan_fw_updata done\n");
 				break;
 			}
 		}
@@ -866,12 +865,12 @@ static int fan_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	fan_kobj = kobject_create_and_add("fan", kernel_kobj);
 	if (!fan_kobj) {
-		printk(KERN_ERR "%s: fan kobj create error\n", __func__);
+		pr_err("%s: fan kobj create error\n", __func__);
 		return -ENOMEM;
 	}
 	ret = sysfs_create_group(fan_kobj, &fan_attr_group);
 	if (ret) {
-		printk(KERN_ERR "%s: failed to create fan group attributes\n",
+		pr_err("%s: failed to create fan group attributes\n",
 		       __func__);
 	}
 
