@@ -46,12 +46,8 @@
 
 static struct fan *nubia_fan;
 static unsigned int fan_speed = 0;
-static unsigned int fan_current = 0;
-static unsigned int fan_temp = 0;
 static unsigned int fan_level = 0;
 static unsigned int old_fan_level = 0;
-static unsigned int g_fan_enable = 0;
-static unsigned int fan_thermal_engine_level = 0;
 static unsigned int screen_status = 1;
 static bool fan_power_on = 0;
 static bool fan_smart = false;
@@ -437,22 +433,6 @@ static unsigned int get_speed_count(struct fan *fan)
 	return fan_speed;
 }
 
-static unsigned int get_fan_current(struct fan *fan)
-{
-	static unsigned char data = 0x06;
-
-	fan_current = fan_i2c_read(fan, &data, sizeof(data));
-	return (fan_current);
-}
-
-static unsigned int get_fan_temp(struct fan *fan)
-{
-	static unsigned char data = 0x07;
-
-	fan_temp = fan_i2c_read(fan, &data, sizeof(data));
-	return (fan_temp);
-}
-
 static void start_pwm(struct fan *fan, unsigned short pwm_value)
 {
 	static unsigned char data[2] = { 0x08, 0x00 }; // 25khz reg
@@ -464,8 +444,6 @@ static void start_pwm(struct fan *fan, unsigned short pwm_value)
 static void get_fan_read(void)
 {
 	unsigned int fan_count;
-	unsigned int adc_current;
-	unsigned int adc_temp;
 
 	if ((get_fan_power_on_state() == true)) {
 		start_speed_count(nubia_fan);
@@ -473,9 +451,6 @@ static void get_fan_read(void)
 		stop_speed_count(nubia_fan);
 
 		fan_count = get_speed_count(nubia_fan) / 3;
-
-		adc_current = get_fan_current(nubia_fan);
-		adc_temp = get_fan_temp(nubia_fan);
 
 		/* If fan is running and read fan_count is 0, reset the fan */
 		if ((fan_speed == 0) && get_fan_power_on_state()) {
@@ -485,14 +460,10 @@ static void get_fan_read(void)
 			fan_set_pwm_by_level(fan_level);
 		}
 
-	} else {
+	} else
 		fan_speed = 0;
-		fan_current = 0;
-		fan_temp = 0;
-	}
 
-	printk(KERN_ERR "%s:fan_count=%d,adc_current=%d,adc_temp=%d\n",
-		__func__, fan_count, adc_current, adc_temp);
+	printk(KERN_ERR "%s:fan_count=%d\n", __func__, fan_count);
 }
 
 static void fan_read_workqueue(struct work_struct *work)
@@ -733,22 +704,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 	return 0;
 }
 
-static ssize_t fan_enable_show(struct kobject *kobj,
-			       struct kobj_attribute *attr, char *buf)
-{
-	printk(KERN_ERR "%s: g_fan_enable=%d\n", __func__, g_fan_enable);
-	return sprintf(buf, "%d\n", g_fan_enable);
-}
-
-static ssize_t fan_enable_store(struct kobject *kobj,
-				struct kobj_attribute *attr, const char *buf,
-				size_t count)
-{
-	sscanf(buf, "%d", &g_fan_enable);
-	printk(KERN_ERR "%s: g_fan_enable=%d\n", __func__, g_fan_enable);
-	return count;
-}
-
 static ssize_t fan_smart_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf) {
 	return sprintf(buf, "%d\n", fan_smart);
@@ -815,55 +770,17 @@ static ssize_t fan_speed_count_show(struct kobject *kobj,
 	return sprintf(buf, "%d\n", fan_speed);
 }
 
-static ssize_t fan_current_show(struct kobject *kobj,
-				struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", fan_current);
-}
-
-static ssize_t fan_temp_show(struct kobject *kobj, struct kobj_attribute *attr,
-			     char *buf)
-{
-	return sprintf(buf, "%d\n", fan_temp);
-}
-static ssize_t fan_thermal_engine_levell_show(struct kobject *kobj,
-					      struct kobj_attribute *attr,
-					      char *buf)
-{
-	return sprintf(buf, "%d\n", fan_thermal_engine_level);
-}
-
-static ssize_t fan_thermal_engine_level_store(struct kobject *kobj,
-					      struct kobj_attribute *attr,
-					      const char *buf, size_t count)
-{
-	sscanf(buf, "%d", &fan_thermal_engine_level);
-	return count;
-}
-static struct kobj_attribute fan_enable_attr =
-	__ATTR(fan_enable, 0664, fan_enable_show, fan_enable_store);
 static struct kobj_attribute fan_smart_attr=
 	__ATTR(fan_smart, 0664, fan_smart_show, fan_smart_store);
 static struct kobj_attribute fan_level_attr = __ATTR(
 	fan_speed_level, 0664, fan_speed_level_show, fan_speed_level_store);
 static struct kobj_attribute fan_speed_attr =
 	__ATTR(fan_speed_count, 0664, fan_speed_count_show, NULL);
-static struct kobj_attribute fan_current_attr =
-	__ATTR(fan_current, 0664, fan_current_show, NULL);
-static struct kobj_attribute fan_temp_attr =
-	__ATTR(fan_temp, 0664, fan_temp_show, NULL);
-static struct kobj_attribute fan_thermal_engine_level_attr =
-	__ATTR(fan_thermal_engine_level, 0664, fan_thermal_engine_levell_show,
-	       fan_thermal_engine_level_store);
 
 static struct attribute *fan_attrs[] = {
-	&fan_enable_attr.attr,
 	&fan_smart_attr.attr,
 	&fan_level_attr.attr,
 	&fan_speed_attr.attr,
-	&fan_current_attr.attr,
-	&fan_temp_attr.attr,
-	&fan_thermal_engine_level_attr.attr,
 	NULL,
 };
 
