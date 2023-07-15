@@ -55,6 +55,7 @@ static unsigned int fan_thermal_engine_level = 0;
 static unsigned int screen_status = 1;
 static bool fan_power_on = 0;
 static bool fan_smart = false;
+static bool fan_manual = false;
 static unsigned int firmware_version = 5;
 static unsigned char firmware_magicvalue = 0x55;
 static unsigned char firmware_version_reg = 0x09;
@@ -698,6 +699,8 @@ static void smart_fan_func(struct work_struct *work) {
 			fan_set_pwm_by_level(level);
 	} else if (fan_smart && !screen_status)
 		old_fan_level = fan_level;
+	else if (!fan_smart && !fan_manual && fan_level != 0)
+		fan_set_pwm_by_level(FAN_LEVEL_0);
 
 	queue_delayed_work(fan->wq, &fan->smart_fan_work, msecs_to_jiffies(10000));
 }
@@ -761,6 +764,11 @@ static ssize_t fan_smart_store(struct kobject *kobj,
 
 	fan_smart = input > 0 ? true : false;
 
+	if (fan_smart) {
+		fan_manual = false;
+		fan_set_pwm_by_level(FAN_LEVEL_0);
+	}
+
 	return count;
 };
 
@@ -787,6 +795,11 @@ static ssize_t fan_speed_level_store(struct kobject *kobj,
 		old_level = level;
 		fan_set_pwm_by_level(level);
 	}
+
+	fan_manual = level > 0 ? true : false;
+
+	if (fan_manual)
+		fan_smart = false;
 
 	return count;
 }
