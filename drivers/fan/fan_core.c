@@ -52,9 +52,9 @@ static unsigned int fan_level = 0;
 static unsigned int old_fan_level = 0;
 static unsigned int g_fan_enable = 0;
 static unsigned int fan_thermal_engine_level = 0;
-static unsigned int fan_smart = 0;
 static unsigned int screen_status = 1;
 static bool fan_power_on = 0;
+static bool fan_smart = false;
 static unsigned int firmware_version = 5;
 static unsigned char firmware_magicvalue = 0x55;
 static unsigned char firmware_version_reg = 0x09;
@@ -682,17 +682,17 @@ static void smart_fan_func(struct work_struct *work) {
 		thermal_zone_get_temp(thermal_zone_get_zone_by_name("gpu-skin-avg-step"), &temp);
 
 		if (temp > 50000)
-			level = 5;
+			level = FAN_LEVEL_5;
 		else if (temp > 47000)
-			level = 4;
+			level = FAN_LEVEL_4;
 		else if (temp > 43000)
-			level = 3;
+			level = FAN_LEVEL_3;
 		else if (temp > 39000)
-			level = 2;
+			level = FAN_LEVEL_2;
 		else if (temp > 35000)
-			level = 1;
+			level = FAN_LEVEL_1;
 		else
-			level = 0;
+			level = FAN_LEVEL_0;
 
 		if (level != fan_level)
 			fan_set_pwm_by_level(level);
@@ -752,8 +752,15 @@ static ssize_t fan_smart_show(struct kobject *kobj,
 }
 
 static ssize_t fan_smart_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count) {
-	sscanf(buf, "%d", &fan_smart);
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int input;
+
+	if (sscanf(buf, "%d", &input) != 1)
+		return -EINVAL;
+
+	fan_smart = input > 0 ? true : false;
+
 	return count;
 };
 
