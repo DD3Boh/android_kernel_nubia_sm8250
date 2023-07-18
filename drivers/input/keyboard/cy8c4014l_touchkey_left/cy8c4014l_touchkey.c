@@ -754,7 +754,13 @@ static int cypress_touchkey_resume(struct device *dev)
 		dev_warn(dev, "%s:touchkey_key in update, don't react\n", __func__);
 		return ret_right;
 	}
+
 	client = container_of(dev, struct i2c_client, dev);
+	if (g_cypress_touch_key_info->new_mode_left == CYPRESS4000_SLEEP_MODE) {
+		dev_err(&client->dev, "touchkey manually set to sleep, skipping resume\n");
+		return 0;
+	}
+
 	ret = cypress_set_mode_left(CYPRESS4000_WAKEUP_MODE);
 	dev_err(&client->dev, "touchkey resume success, resume mode[0x%x]\n",ret);
 	return 0;
