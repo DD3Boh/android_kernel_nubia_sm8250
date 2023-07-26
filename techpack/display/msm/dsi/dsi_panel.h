@@ -348,4 +348,6 @@ void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 #ifdef CONFIG_MACH_NUBIA_NX659J
 int dsi_panel_read_data(struct mipi_dsi_device *dsi, u8 cmd, void* buf, size_t len);
 #endif
+
+int dsi_panel_set_hbm(struct dsi_panel *panel, bool status);
 #endif /* _DSI_PANEL_H_ */
