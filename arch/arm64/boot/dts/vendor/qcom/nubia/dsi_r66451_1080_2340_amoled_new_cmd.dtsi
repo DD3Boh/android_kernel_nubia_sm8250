@@ -790,10 +790,10 @@
 /***********************HBM START*************************/
 				nubia,mdss-dsi-hbm-command-off = [
 					39 01 00 00 00 00 02 B0 00
-					15 01 00 00 15 00 02 53 00];
+					15 01 00 00 0F 00 02 53 00];
 				nubia,mdss-dsi-hbm-command-on = [
 					39 01 00 00 00 00 02 B0 00
-					15 01 00 00 15 00 02 53 E0];
+					15 01 00 00 0F 00 02 53 E0];
 				nubia,mdss-dsi-hbm-command-off-state = "dsi_hs_mode";
 				nubia,mdss-dsi-hbm-command-on-state = "dsi_hs_mode";
 /**********************HBM END****************************/
