@@ -431,6 +431,7 @@ struct sde_crtc_state {
 	uint64_t input_fence_timeout_ns;
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
+	struct sde_hw_dim_layer *fod_dim_layer;
 	uint32_t num_ds;
 	uint32_t num_ds_enabled;
 	bool ds_dirty;
@@ -439,7 +440,6 @@ struct sde_crtc_state {
 
 	struct sde_core_perf_params new_perf;
 	int secure_session;
-	u8 fod_dim_alpha;
 	bool color_invert_on;
 };
 
@@ -903,7 +903,5 @@ static inline void sde_crtc_set_compression_ratio(
 end:
 	SDE_DEBUG("sde_crtc comp ratio: %d\n", sde_crtc->comp_ratio);
 }
-
-bool sde_crtc_is_fod_enabled(struct drm_crtc_state *state);
 
 #endif /* _SDE_CRTC_H_ */
