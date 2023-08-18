@@ -180,6 +180,7 @@ static enum power_supply_property neo_battery_properties[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 };
 
 static int spmi_bus_read(struct neo_battery_data *chip, u16 addr, u8 *val)
@@ -446,6 +447,28 @@ static int neo_battery_get_batt_current(struct neo_battery_data *chip,
 	return rc;
 }
 
+static int neo_battery_get_time_to_full_now(struct neo_battery_data *chip,
+				union power_supply_propval *val)
+{
+  int rc = -EINVAL;
+
+#if defined(CONFIG_NEO_EXTERNAL_FG_SUPPORT)
+  if (!chip->ex_batt_psy)
+	  return -EINVAL;
+
+  rc = power_supply_get_property(chip->ex_batt_psy,
+			  POWER_SUPPLY_PROP_TIME_TO_FULL_NOW, val);
+#else
+  if (!chip->bms_psy)
+	  return -EINVAL;
+
+  rc = power_supply_get_property(chip->bms_psy,
+			  POWER_SUPPLY_PROP_TIME_TO_FULL_NOW, val);
+#endif
+
+  return rc;
+}
+
 int neo_battery_get_batt_temp(struct neo_battery_data *chip,
 			      union power_supply_propval *val)
 {
@@ -622,6 +645,9 @@ static int neo_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = neo_battery_get_batt_current(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		rc = neo_battery_get_time_to_full_now(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = neo_battery_get_batt_voltage(chip, val);
