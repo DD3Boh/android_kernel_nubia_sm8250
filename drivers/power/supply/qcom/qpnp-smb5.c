@@ -455,7 +455,7 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP_PL;
 
 #if defined(CONFIG_NUBIA_CHARGE_FEATURE)	
-	chg->jeita_warm_stop_chg_soc = 70;
+	chg->jeita_warm_stop_chg_soc = 95;
 	pr_err("nubia charge:jeita_warm_stop_chg_soc:%d\n", chg->jeita_warm_stop_chg_soc);
 	
 	chg->lcd_on_limit_enable= of_property_read_bool(node,
