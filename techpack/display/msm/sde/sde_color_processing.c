@@ -1431,8 +1431,10 @@ static int sde_cp_crtc_checkfeature(struct sde_cp_node *prop_node,
 bool sde_is_fod_pressed(struct drm_crtc *crtc)
 {
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
+	bool enabled = !!cstate->fod_dim_layer;
 
-	return !!cstate->fod_dim_layer;
+	cstate->pcc_on = !enabled;
+	return enabled;
 }
 
 bool sde_cp_crtc_update_pcc(struct drm_crtc *crtc)
@@ -1519,11 +1521,9 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 		blob = prop_node->blob_ptr;
 		pcc_cfg = blob->data;
 
-		if (pcc_cfg->r.c == 0 && pcc_cfg->g.c == 0 && pcc_cfg->b.c == 0) {
+		if (pcc_cfg->r.c == 0 && pcc_cfg->g.c == 0 && pcc_cfg->b.c == 0)
 			cstate->color_invert_on = false;
-			hw_cfg.payload = NULL;
-			hw_cfg.len = 0;
-		} else {
+		else
 			cstate->color_invert_on = true;
 
 			if (hw_cfg.payload && (hw_cfg.len == sizeof(save_pcc))) {
@@ -1541,7 +1541,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				pcc_enabled = false;
 			}
 		}
-	}
+	//}
 
 	if ((prop_node->feature >= SDE_CP_CRTC_MAX_FEATURES) ||
 			set_crtc_feature_wrappers[prop_node->feature] == NULL) {
@@ -1873,11 +1873,9 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 
 	mutex_lock(&sde_crtc->crtc_cp_lock);
 
-	if (cstate->color_invert_on) {
-		dirty_pcc = sde_cp_crtc_update_pcc(crtc);
-		if (dirty_pcc)
-			set_dspp_flush = true;
-	}
+	dirty_pcc = sde_cp_crtc_update_pcc(crtc);
+	if (dirty_pcc)
+		set_dspp_flush = true;
 
 	if (list_empty(&sde_crtc->dirty_list) &&
 			list_empty(&sde_crtc->ad_dirty) &&
