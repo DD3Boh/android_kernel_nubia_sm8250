@@ -1141,8 +1141,8 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 }
 
 #define CSC_MASK			0x7fffff
-#define CSC_ONE				(1 << 16)
-#define CSC_DGM_ONE			(1 << 9)
+#define CSC_ONE				(1 << 15)
+#define CSC_DGM_ONE			(1 << 8)
 #define CSC_10BIT_LIMIT			0x3ff
 #define CSC_8BIT_LIMIT			0xff
 #define PCC_MASK			0x3ffff
@@ -1201,6 +1201,7 @@ static inline void _sde_plane_mul_csc_pcc(struct sde_plane *psde,
 	memcpy(&psde->csc_pcc_cfg, csc_cfg, sizeof(psde->csc_pcc_cfg));
 
 	for (i = 0; i < 3; i++) {
+		unsigned int csc_one = csc_cfg->csc_mv[i * 3 + i];
 		for (j = 0; j < 3; j++) {
 			unsigned int ij = i * 3 + j;
 			s64 sum = 0;
@@ -1215,6 +1216,9 @@ static inline void _sde_plane_mul_csc_pcc(struct sde_plane *psde,
 			}
 
 			sum = div_s64(sum, PCC_ONE);
+
+			if (sum > 0)
+				sum += csc_one;
 
 			psde->csc_pcc_cfg.csc_mv[ij] = csc_to_unsigned(sum);
 		}
